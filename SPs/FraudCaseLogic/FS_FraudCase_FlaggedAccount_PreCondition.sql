@@ -17,6 +17,7 @@ AS
 		- 20180525@Casey.Huynh: Exclude League Test
 		- 20190225@Long.Luu:	Scanning for completed matches during UM time [Redmine ID: #106820]
 		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [110060]
+		- 20190404@Casey.Huynh: Implement, not scan Match if it has no ticket in bettran tables [111454]
 	Param's Explanation (filtered by):
 */
 BEGIN
@@ -34,23 +35,37 @@ BEGIN
 		,	EventStatus		NVARCHAR(20)
 	);
 
+	
+	;WITH newMatch AS
+	(
+	SELECT		MatchId = m.matchid
+				,EventStatus = m.eventstatus
+	FROM		bodb02.dbo.match AS m WITH (NOLOCK)
+	INNER JOIN	bodb02.dbo.League AS l WITH(NOLOCK)
+				ON m.leagueid = l.leagueid
+	WHERE		(m.eventstatus = 'running' OR m.eventstatus = 'completed')
+				AND m.sporttype = 1
+				AND m.kickofftime <= GETDATE()
+				AND l.isTest = 0
+	)
 	INSERT INTO #tmpMatches(MatchId, EventStatus)
-	SELECT  [MatchId] = m.matchid
-		,	[EventStatus] = m.eventstatus
-	FROM bodb02.dbo.match AS m WITH (NOLOCK)
-		INNER JOIN bodb02.dbo.League AS l WITH(NOLOCK) ON m.leagueid = l.leagueid
-	WHERE (m.eventstatus = 'running' OR m.eventstatus = 'completed')
-		AND m.sporttype = 1
-		AND m.kickofftime <= GETDATE()
-		AND l.isTest = 0;		
+	SELECT		MatchId
+				, EventStatus
+	FROM		newMatch nm WITH(NOLOCK)
+	WHERE		EXISTS (SELECT TOP(1) Matchid
+						FROM	bodb02.dbo.bettrans b WITH(NOLOCK)
+						WHERE	b.matchid = nm.Matchid);
 
-	DELETE m
-	FROM #tmpMatches AS m
-		LEFT JOIN dbo.ScannedMatch AS ms WITH(NOLOCK)ON ms.matchid = m.matchid AND ms.FraudCaseId = @fraudCaseID
-	WHERE ms.MatchId IS NOT NULL AND m.EventStatus = 'completed';
+	DELETE		m
+	FROM		#tmpMatches AS m WITH(ROWLOCK)
+	LEFT JOIN	dbo.ScannedMatch AS ms WITH(NOLOCK)
+				ON ms.matchid = m.matchid 
+				AND ms.FraudCaseId = @fraudCaseID
+	WHERE		ms.MatchId IS NOT NULL 
+				AND m.EventStatus = 'completed';
 
-	SELECT DISTINCT MatchId
-	FROM #tmpMatches WITH(NOLOCK);
+	SELECT		DISTINCT MatchId
+	FROM		#tmpMatches WITH(NOLOCK);
 END;
 
 GO

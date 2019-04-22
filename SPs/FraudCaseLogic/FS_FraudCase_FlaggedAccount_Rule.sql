@@ -21,6 +21,7 @@ AS
 		- 20190219@Long: Store more info (Currency & Username) for table SuspiciousCutomers [Redmine ID: 107858]
 		- 20190319@Casey.Huynh: Enhance Performance table #tmpFraudTickets [110060]
 		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [110060]
+		- 20190410@Casey.Huynh: Implement, update hasscanned = 1 for deleted Matches [111454]
 
 	Param's Explanation (filtered by):
 */
@@ -172,6 +173,15 @@ BEGIN
 
 	END;
 	
+	------------------------------------------------------------------
+	--===10. UPDATE: TABLE DelayGoalMatchScanning (fromTransId= (the last scanned Transid + 1)
+	UPDATE		d 
+	SET			d.IsScanCompleted = (CASE WHEN d.EventStatus = 'Completed' THEN 1 ELSE d.IsScanCompleted END)
+	FROM		dbo.FlagAccountMatchScanning d WITH (ROWLOCK, UPDLOCK)
+	INNER JOIN	#tmpMatches mi WITH (NOLOCK)
+				ON mi.MatchId = d.MatchId
+	WHERE		d.IsScanCompleted = 0;
+
 	EXEC sp_xml_removedocument @idoc;
 END;
 

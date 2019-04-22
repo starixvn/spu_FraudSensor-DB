@@ -16,6 +16,7 @@ AS
 		- 20180525@Casey.Huynh: Exclude League Test		
 		- 20190225@Long.Luu:	Scanning for completed matches during UM time [Redmine ID: #106820]
 		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [110060]
+		- 20190404@Casey.Huynh: Implement, not scan Match if it has no ticket in bettran tables [111454]
 	Param's Explanation:
 */
 BEGIN
@@ -34,38 +35,48 @@ BEGIN
 		,	KickOffTime		DATETIME
 		,	EventStatus		NVARCHAR(20)
 	);
-
+	
+	;WITH newMatch AS
+	(
+	SELECT		[MatchId]		= m.matchid
+			,	[EventDate]		= m.eventdate
+			,	[KickOffTime]	= m.kickofftime
+			,	[eventstatus]	= m.eventstatus
+	FROM		bodb02.dbo.match AS m WITH(NOLOCK)
+	INNER JOIN	bodb02.dbo.League AS l WITH(NOLOCK) 
+				ON	m.leagueid = l.leagueid
+	WHERE		m.sporttype = 1
+				AND	(m.eventstatus = 'Running' OR m.eventstatus = 'Completed')
+				AND	m.kickofftime <= GETDATE()
+				AND	l.IsMainMarket = 1
+				AND	l.isTest = 0
+	)
 	INSERT INTO #tmpMatchRunning(MatchId, EventDate, KickOffTime, EventStatus)
-	SELECT	[MatchId]		= m.matchid
-		,	[EventDate]		= m.eventdate
-		,	[KickOffTime]	= m.kickofftime
-		,	[eventstatus]	= m.eventstatus
-	FROM bodb02.dbo.match AS m WITH(NOLOCK)
-		INNER JOIN bodb02.dbo.League AS l WITH(NOLOCK) ON m.leagueid = l.leagueid
-	WHERE m.sporttype = 1
-		AND	(m.eventstatus = 'Running' OR m.eventstatus = 'Completed')
-		AND	m.kickofftime <= GETDATE()
-		AND l.IsMainMarket = 1
-		AND l.isTest = 0;
-
-	DELETE mr
-	FROM #tmpMatchRunning AS mr
-		LEFT JOIN dbo.ScannedMatch as sm WITH(NOLOCK) ON mr.matchid = sm.MatchId AND sm.FraudCaseId = @fraudCaseID
-	WHERE sm.MatchId IS NOT NULL AND mr.EventStatus = 'Completed';
- 
+	SELECT		MatchId
+				, EventDate
+				, KickOffTime
+				, EventStatus
+	FROM		newMatch nm WITH(NOLOCK)
+	WHERE		EXISTS (SELECT TOP(1) Matchid
+						FROM	bodb02.dbo.bettrans b WITH(NOLOCK)
+						WHERE	b.matchid = nm.Matchid);
+	
 	---Insert New Match to DelayGoalMatchScanning: LastScannedTransId default = 0 
-	INSERT INTO dbo.DelayGoalMatchScanning (Matchid, EventDate, KickOffTime, fromTransId)	
-	SELECT	[MatchId]		= mr.matchid
-		,	[EventDate]		= mr.eventdate
-		,	[KickOffTime]	= mr.kickofftime
-		,	[fromTransid]	= 0
-	FROM #tmpMatchRunning AS mr WITH(NOLOCK)
-		LEFT JOIN dbo.DelayGoalMatchScanning AS ms WITH(NOLOCK)ON mr.matchid = ms.matchid
-	WHERE ms.Matchid IS NULL;
+	INSERT INTO dbo.DelayGoalMatchScanning (Matchid, EventDate, KickOffTime, fromTransId, IsScanCompleted)	
+	SELECT		[MatchId]		= mr.matchid
+			,	[EventDate]		= mr.eventdate
+			,	[KickOffTime]	= mr.kickofftime
+			,	[fromTransid]	= 0
+			,	[IsScanCompleted] = 0
+	FROM		#tmpMatchRunning AS mr WITH(NOLOCK)
+	LEFT JOIN	dbo.DelayGoalMatchScanning AS ms WITH(NOLOCK)
+				ON mr.matchid = ms.matchid
+	WHERE		ms.Matchid IS NULL;
 	
 	---Return Match List Need to Scanning
-	SELECT DISTINCT mr.Matchid
-	FROM #tmpMatchRunning AS mr WITH(NOLOCK);
+	SELECT		dms.Matchid
+	FROM		dbo.DelayGoalMatchScanning dms WITH(NOLOCK)
+	WHERE		dms.IsScanCompleted = 0;
 	
 END;
 

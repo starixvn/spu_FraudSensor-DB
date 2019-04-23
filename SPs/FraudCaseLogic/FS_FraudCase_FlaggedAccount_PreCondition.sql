@@ -56,16 +56,29 @@ BEGIN
 						FROM	bodb02.dbo.bettrans b WITH(NOLOCK)
 						WHERE	b.matchid = nm.Matchid);
 
-	DELETE		m
-	FROM		#tmpMatches AS m WITH(ROWLOCK)
-	LEFT JOIN	dbo.ScannedMatch AS ms WITH(NOLOCK)
-				ON ms.matchid = m.matchid 
-				AND ms.FraudCaseId = @fraudCaseID
-	WHERE		ms.MatchId IS NOT NULL 
-				AND m.EventStatus = 'completed';
+		
+	---Insert New Match to DelayGoalMatchScanning: LastScannedTransId default = 0 
+	INSERT INTO dbo.FlagAccountMatchScanning (Matchid, EventDate, KickOffTime, fromTransId, IsScanCompleted)	
+	SELECT		[MatchId]		= m.matchid
+			,	[EventDate]		= m.eventdate
+			,	[KickOffTime]	= m.kickofftime
+			,	[fromTransid]	= 0
+			,	[IsScanCompleted] = 0
+	FROM		#tmpMatches AS m WITH(NOLOCK)
+	LEFT JOIN	dbo.FlagAccountMatchScanning ms WITH(NOLOCK)
+				ON m.matchid = ms.matchid
+	WHERE		ms.Matchid IS NULL;
+	
+	---Update EventStatus of DelayGoalMatchScanning
+	UPDATE		ms
+	SET			ms.EventStatus = m.EventStatus
+	FROM		dbo.FlagAccountMatchScanning ms WITH(ROWLOCK)
+	INNER JOIN	#tmpMatches AS mr WITH(NOLOCK)
+				ON m.matchid = ms.matchid;
 
 	SELECT		DISTINCT MatchId
-	FROM		#tmpMatches WITH(NOLOCK);
+	FROM		dbo.FlagAccountMatchScanning ms WITH(NOLOCK)
+	WHERE		ms.IsScanCompleted=0;
 END;
 
 GO

@@ -73,6 +73,13 @@ BEGIN
 				ON mr.matchid = ms.matchid
 	WHERE		ms.Matchid IS NULL;
 	
+	---Update EventStatus of DelayGoalMatchScanning
+	UPDATE		ms
+	SET			ms.EventStatus = mr.EventStatus
+	FROM		dbo.DelayGoalMatchScanning ms WITH(ROWLOCK)
+	INNER JOIN	#tmpMatchRunning AS mr WITH(NOLOCK)
+				ON mr.matchid = ms.matchid;
+
 	---Return Match List Need to Scanning
 	SELECT		dms.Matchid
 	FROM		dbo.DelayGoalMatchScanning dms WITH(NOLOCK)

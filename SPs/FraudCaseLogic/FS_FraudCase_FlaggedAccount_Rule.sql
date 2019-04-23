@@ -106,18 +106,18 @@ BEGIN
 		,	[CurrencyId]		= ans.currency
 		,	[CurrencyName]		= ans.CurrencyName
 		,	[MatchId]			= ans.matchid
-		,	[EventDate]			= tch.EventDate
+		,	[EventDate]			= fms.EventDate
 		,	[TransId]			= ans.transid
-	FROM bodb02.dbo.match tch WITH (NOLOCK)
-	INNER JOIN bodb02.dbo.bettrans ans WITH (NOLOCK) ON tch.matchid = ans.matchid
+	FROM	dbo.FlagAccountMatchScanning fms WITH (NOLOCK)
+	INNER JOIN bodb02.dbo.bettrans ans WITH (NOLOCK) ON fms.matchid = ans.matchid
 	INNER JOIN #tmpFlaggedAccounts fa WITH (NOLOCK) ON fa.custid = ans.custid
-	WHERE tch.matchid IN (SELECT MatchId FROM #tmpMatches WITH (NOLOCK))
+	WHERE fms.matchid IN (SELECT m.MatchId FROM #tmpMatches m WITH (NOLOCK))
 		AND ans.bettype IN (
 			SELECT DISTINCT spb.BetType
 			FROM bodb02.dbo.SportBettypeMatrix spb WITH (NOLOCK)
 			WHERE spb.ProductID = 1
 		)
-		AND ans.custid NOT IN (SELECT CustId FROM dbo.DelayGoalAccount WITH (NOLOCK))
+		AND ans.custid NOT IN (SELECT dga.CustId FROM dbo.DelayGoalAccount dga WITH (NOLOCK))
 		AND ans.currency <> 20;
 
 	-- UPDATE match info for ScannedMatch table
@@ -176,7 +176,7 @@ BEGIN
 	------------------------------------------------------------------
 	--===10. UPDATE: TABLE DelayGoalMatchScanning (fromTransId= (the last scanned Transid + 1)
 	UPDATE		d 
-	SET			d.IsScanCompleted = (CASE WHEN d.EventStatus = 'Completed' THEN 1 ELSE d.IsScanCompleted END)
+	SET			d.IsScanCompleted = (CASE WHEN d.EventStatus = 'Completed' THEN 1 ELSE 0 END)
 	FROM		dbo.FlagAccountMatchScanning d WITH (ROWLOCK, UPDLOCK)
 	INNER JOIN	#tmpMatches mi WITH (NOLOCK)
 				ON mi.MatchId = d.MatchId

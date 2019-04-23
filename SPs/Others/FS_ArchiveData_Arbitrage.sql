@@ -17,8 +17,10 @@ AS
 */
 BEGIN
 	SET NOCOUNT ON;	
+
 	---=========INITIAL========================
 	DECLARE @BUDate DATETIME;
+	DECLARE @EventDate DATETIME;
 
 	IF	OBJECT_ID('tempdb..#tmpBUMBData') IS NOT NULL
 	BEGIN;
@@ -26,8 +28,8 @@ BEGIN
 	END;
 
 	CREATE TABLE	#tmpBUMBData (
-			BUDay	DATETIME
-		,	MBDay	DATETIME
+			BUDay		DATETIME
+		,	MBDay		DATETIME
 	);	
 
 	IF	OBJECT_ID('tempdb..#tmpEventDate') IS NOT NULL
@@ -38,27 +40,28 @@ BEGIN
 	CREATE TABLE	#tmpEventDate (
 			EventDate	DATETIME NOT NULL PRIMARY KEY
 	);
+
 	---=========GET: BU DAYs==========================
-	INSERT INTO #tmpBUMBData(BUDay,MBDay)
+	INSERT INTO #tmpBUMBData(BUDay, MBDay)
 	EXECUTE bodb02.dbo.Age_SelBalanceUpDay;
 
-	SELECT @BUDate	= (SELECT TOP(1) BUDAY FROM #tmpBUMBData WITH(NOLOCK))
+	SELECT @BUDate	= (SELECT TOP(1) BUDay FROM #tmpBUMBData WITH(NOLOCK));
 
-	--========== MOVE DATA ArbitrageSuspiciousInfo
 	INSERT INTO	#tmpEventDate(EventDate)
 	SELECT		DISTINCT asi.EventDate
-	FROM		dbo.ArbitrageSuspiciousInfo asi WITH(NOLOCK)
+	FROM		dbo.ArbitrageSuspiciousInfo AS asi WITH(NOLOCK)
 	WHERE		asi.EventDate < @BUDate;
 
-	IF EXISTS (SELECT 1 FROM #tmpEventDate WITH(NOLOCK))
+	WHILE EXISTS (SELECT 1 FROM #tmpEventDate WITH(NOLOCK))
 	BEGIN
-		DELETE		asi_bk
-		FROM		dbo.ArbitrageSuspiciousInfo_bk asi_bk WITH(ROWLOCK)
-		INNER JOIN	#tmpEventDate ed WITH(NOLOCK)
-					ON asi_bk.EventDate = ed.EventDate
+		SELECT @EventDate = EventDate FROM #tmpEventDate WITH(NOLOCK);
+
+		--========== MOVE DATA ArbitrageSuspiciousInfo
+		DELETE FROM	dbo.ArbitrageSuspiciousInfo_bk WITH(ROWLOCK)
+		WHERE		EventDate = @EventDate;
 		
 		INSERT INTO	dbo.ArbitrageSuspiciousInfo_bk(CustId, MatchId, FraudCaseId, EventDate, SuspiciousDate, TransIds, IsVerified, ViolationCounter, TicketCounter, VerifiedDate, VerifiedBy)
-		SELECT		CustId
+		SELECT		asi.CustId
 					, asi.MatchId
 					, asi.FraudCaseId
 					, asi.EventDate
@@ -69,31 +72,28 @@ BEGIN
 					, asi.TicketCounter
 					, asi.VerifiedDate
 					, asi.VerifiedBy
-		FROM		dbo.ArbitrageSuspiciousInfo asi WITH(NOLOCK)
-		INNER JOIN	#tmpEventDate ed WITH(NOLOCK)
-					ON ed.EventDate = asi.EventDate;
+		FROM		dbo.ArbitrageSuspiciousInfo AS asi WITH(NOLOCK)
+		WHERE		asi.EventDate = @EventDate;
 
-		DELETE		asi
-		FROM		dbo.ArbitrageSuspiciousInfo asi WITH(ROWLOCK)
-		INNER JOIN	#tmpEventDate ed WITH(NOLOCK)
-					ON asi.EventDate = ed.EventDate;
+		DELETE FROM	dbo.ArbitrageSuspiciousInfo WITH(ROWLOCK)
+		WHERE		EventDate = @EventDate;
 
+		DELETE FROM #tmpEventDate WITH(ROWLOCK)
+		WHERE		EventDate = @EventDate;
 	END;
-
-	--========== MOVE DATA ArbitrageTicketDetails
-	TRUNCATE TABLE #tmpEventDate;
 
 	INSERT INTO	#tmpEventDate(EventDate)
 	SELECT		DISTINCT atd.EventDate
-	FROM		dbo.ArbitrageTicketDetails atd WITH(NOLOCK)
+	FROM		dbo.ArbitrageTicketDetails AS atd WITH(NOLOCK)
 	WHERE		atd.EventDate < @BUDate;
 
-	IF EXISTS (SELECT 1 FROM #tmpEventDate WITH(NOLOCK))
+	WHILE EXISTS (SELECT 1 FROM #tmpEventDate WITH(NOLOCK))
 	BEGIN
-		DELETE		atd_bk
-		FROM		dbo.ArbitrageTicketDetails_bk atd_bk WITH(ROWLOCK)
-		INNER JOIN	#tmpEventDate ed WITH(NOLOCK)
-					ON atd_bk.EventDate = ed.EventDate
+		SELECT @EventDate = EventDate FROM #tmpEventDate WITH(NOLOCK);
+
+		--========== MOVE DATA ArbitrageTicketDetails
+		DELETE FROM dbo.ArbitrageTicketDetails_bk WITH(ROWLOCK)
+		WHERE		EventDate = @EventDate;
 		
 		INSERT INTO	dbo.ArbitrageTicketDetails_bk(CustId, MatchId, GroupId, TransIds, BetType, Handicap, TicketCounter, IsIPFraud, GraphDBGroupId, LiveHomeScore, LiveAwayScore)
 		SELECT		atd.CustId
@@ -107,16 +107,16 @@ BEGIN
 					, atd.GraphDBGroupId
 					, atd.LiveHomeScore
 					, atd.LiveAwayScore
-		FROM		dbo.ArbitrageTicketDetails atd WITH(NOLOCK)
-		INNER JOIN	#tmpEventDate ed WITH(NOLOCK)
-					ON ed.EventDate = atd.EventDate;
+		FROM		dbo.ArbitrageTicketDetails AS atd WITH(NOLOCK)
+		WHERE		atd.EventDate = @EventDate;
 
-		DELETE		atd
-		FROM		dbo.ArbitrageTicketDetails atd WITH(ROWLOCK)
-		INNER JOIN	#tmpEventDate ed WITH(NOLOCK)
-					ON atd.EventDate = ed.EventDate;
+		DELETE FROM dbo.ArbitrageTicketDetails WITH(ROWLOCK)
+		WHERE		EventDate = @EventDate;
 
+		DELETE FROM #tmpEventDate WITH(ROWLOCK)
+		WHERE		EventDate = @EventDate;
 	END;
-
 END;
+
+GO
 /*<info serverAlias="DBFS-bodb_FraudSensor" executers="bodbSPUNet" isFunction="0" isNested="0"></info>*/

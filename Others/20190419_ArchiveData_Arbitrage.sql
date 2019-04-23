@@ -28,7 +28,7 @@ CREATE TABLE dbo.ArbitrageTicketDetails_bk(
 	LiveHomeScore	SMALLINT NULL,
 	LiveAwayScore	SMALLINT NULL,
 	EventDate		DATETIME NULL
-) ON IDX TEXTIMAGE_ON DATA
+) ON DATA
 
 CREATE CLUSTERED INDEX CIX_ArbitrageTicketDetails_bk_MatchIdCustId ON dbo.ArbitrageTicketDetails_bk
 (

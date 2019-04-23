@@ -19,7 +19,6 @@ BEGIN
 	SET NOCOUNT ON;	
 	---=========INITIAL========================
 	DECLARE @BUDate DATETIME;
-	DECLARE @IsMoved BIT;
 
 	IF	OBJECT_ID('tempdb..#tmpBUMBData') IS NOT NULL
 	BEGIN;

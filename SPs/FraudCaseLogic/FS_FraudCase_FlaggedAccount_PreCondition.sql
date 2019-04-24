@@ -39,11 +39,11 @@ BEGIN
 	;WITH newMatch AS
 	(
 	SELECT		MatchId = m.matchid
-				,EventStatus = m.eventstatus
+				,EventStatus = m.EventStatus
 	FROM		bodb02.dbo.match AS m WITH (NOLOCK)
 	INNER JOIN	bodb02.dbo.League AS l WITH(NOLOCK)
 				ON m.leagueid = l.leagueid
-	WHERE		(m.eventstatus = 'running' OR m.eventstatus = 'completed')
+	WHERE		(m.EventStatus = 'running' OR m.EventStatus = 'completed')
 				AND m.sporttype = 1
 				AND m.kickofftime <= GETDATE()
 				AND l.isTest = 0
@@ -57,24 +57,22 @@ BEGIN
 						WHERE	b.matchid = nm.Matchid);
 
 		
-	---Insert New Match to DelayGoalMatchScanning: LastScannedTransId default = 0 
-	INSERT INTO dbo.FlagAccountMatchScanning (Matchid, EventDate, KickOffTime, fromTransId, IsScanCompleted)	
-	SELECT		[MatchId]		= m.matchid
-			,	[EventDate]		= m.eventdate
-			,	[KickOffTime]	= m.kickofftime
-			,	[fromTransid]	= 0
-			,	[IsScanCompleted] = 0
+	---Insert New Match to FlagAccountMatchScanning
+	INSERT INTO dbo.FlagAccountMatchScanning (Matchid, EventDate,  IsScanCompleted)	
+	SELECT		[MatchId]			= m.MatchId
+			,	[EventDate]			= m.EventStatus
+			,	[IsScanCompleted]	= 0
 	FROM		#tmpMatches AS m WITH(NOLOCK)
 	LEFT JOIN	dbo.FlagAccountMatchScanning ms WITH(NOLOCK)
 				ON m.matchid = ms.matchid
 	WHERE		ms.Matchid IS NULL;
 	
-	---Update EventStatus of DelayGoalMatchScanning
+	---Update EventStatus of FlagAccountMatchScanning
 	UPDATE		ms
 	SET			ms.EventStatus = m.EventStatus
 	FROM		dbo.FlagAccountMatchScanning ms WITH(ROWLOCK)
-	INNER JOIN	#tmpMatches AS mr WITH(NOLOCK)
-				ON m.matchid = ms.matchid;
+	INNER JOIN	#tmpMatches AS m WITH(NOLOCK)
+				ON m.MatchId = ms.matchid;
 
 	SELECT		DISTINCT MatchId
 	FROM		dbo.FlagAccountMatchScanning ms WITH(NOLOCK)

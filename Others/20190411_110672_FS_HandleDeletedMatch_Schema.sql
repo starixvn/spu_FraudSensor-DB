@@ -10,6 +10,9 @@ ALTER TABLE dbo.DelayGoalMatchScanning
 	ADD	EventStatus			NVARCHAR(50)
 		, IsScanCompleted	BIT
 
+GO
+EXEC sp_rename 'DelayGoalMatchScanning.fromTransId', 'FromTransId', 'COLUMN';
+GO
 --=================================================
 
 CREATE TABLE dbo.FlagAccountMatchScanning(

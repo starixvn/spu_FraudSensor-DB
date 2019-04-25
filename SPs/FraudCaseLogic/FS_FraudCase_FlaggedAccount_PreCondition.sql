@@ -31,15 +31,19 @@ BEGIN
 	END;
 
 	CREATE TABLE #tmpMatches(
-			MatchId			INT	NOT	NULL PRIMARY KEY CLUSTERED		
+			MatchId			INT	NOT	NULL PRIMARY KEY CLUSTERED
+		,	EventDate		DATETIME
+		,	KickOffTime		DATETIME
 		,	EventStatus		NVARCHAR(20)
 	);
 
 	
-	;WITH newMatch AS
+	;WITH NewMatch AS
 	(
-	SELECT		MatchId = m.matchid
-				,EventStatus = m.EventStatus
+	SELECT		MatchId			= m.matchid
+				, EventStatus	= m.EventStatus
+				, KickOffTime	= m.kickofftime
+				, EventDate		= m.eventdate
 	FROM		bodb02.dbo.match AS m WITH (NOLOCK)
 	INNER JOIN	bodb02.dbo.League AS l WITH(NOLOCK)
 				ON m.leagueid = l.leagueid
@@ -48,20 +52,24 @@ BEGIN
 				AND m.kickofftime <= GETDATE()
 				AND l.isTest = 0
 	)
-	INSERT INTO #tmpMatches(MatchId, EventStatus)
+	INSERT INTO #tmpMatches(MatchId, EventDate, KickOffTime, EventStatus)
 	SELECT		MatchId
+				, EventDate
+				, KickOffTime
 				, EventStatus
-	FROM		newMatch nm WITH(NOLOCK)
+	FROM		NewMatch nm WITH(NOLOCK)
 	WHERE		EXISTS (SELECT TOP(1) Matchid
 						FROM	bodb02.dbo.bettrans b WITH(NOLOCK)
 						WHERE	b.matchid = nm.Matchid);
 
 		
 	---Insert New Match to FlagAccountMatchScanning
-	INSERT INTO dbo.FlagAccountMatchScanning (Matchid, EventDate,  IsScanCompleted)	
-	SELECT		[MatchId]			= m.MatchId
-			,	[EventDate]			= m.EventStatus
-			,	[IsScanCompleted]	= 0
+	INSERT INTO dbo.FlagAccountMatchScanning (Matchid, EventDate, KickOffTime, EventStatus, IsScanCompleted)	
+	SELECT		m.MatchId
+				, m.EventDate
+				, m.KickOffTime
+				, m.EventStatus
+				, 0 AS IsScanCompleted
 	FROM		#tmpMatches AS m WITH(NOLOCK)
 	LEFT JOIN	dbo.FlagAccountMatchScanning ms WITH(NOLOCK)
 				ON m.matchid = ms.matchid

@@ -69,9 +69,9 @@ BEGIN
 				AND ams.IsMatchCompleted = 0;
 	
 	--==INSERT:	NEW MATCH
-	;WITH newMatch AS
+	;WITH NewMatch AS
 	(
-	SELECT		m.Matchid
+	SELECT		m.matchid
 				, (CASE WHEN m.eventstatus = 'Completed' THEN 1 ELSE 0 END) AS IsMatchCompleted
 				, 0 AS IsScanCompleted
 				, @CurrentTime AS CapturedDate				
@@ -88,14 +88,14 @@ BEGIN
 				AND a.MatchId IS NULL
 	)
 	INSERT INTO dbo.ArbitrageMatchScanning(MatchId, IsMatchCompleted, IsScanCompleted, CapturedDate)
-	SELECT		nm.matchid
+	SELECT		nm.MatchId
 				, nm.IsMatchCompleted
 				, nm.IsScanCompleted
 				, nm.CapturedDate		
 	FROM		newMatch nm WITH(NOLOCK)
-	WHERE		EXISTS (SELECT TOP(1) Matchid
+	WHERE		EXISTS (SELECT TOP(1) b.matchid
 						FROM	bodb02.dbo.bettrans b WITH(NOLOCK)
-						WHERE	b.matchid = nm.Matchid);
+						WHERE	b.matchid = nm.matchid);
 
 	--==2. INSERT:	Customer List that has not scanned completed
 	INSERT INTO #tmpCustomerList(MatchId, LiveHomeScore, LiveAwayScore, Bettype, Handicap, CustId)

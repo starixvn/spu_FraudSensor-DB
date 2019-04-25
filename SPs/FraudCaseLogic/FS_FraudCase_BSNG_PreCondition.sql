@@ -28,7 +28,7 @@ BEGIN
 	SET @CurrentTime = GETDATE();
 	
 	--- ============1. INSERT NEW MATCH=============================
-	;WITH newMatch AS
+	;WITH NewMatch AS
 	(
 	SELECT		m.matchid
 				, m.eventdate
@@ -50,16 +50,16 @@ BEGIN
 	)
 
 	INSERT INTO dbo.MatchScore(MatchId, EventDate, EventStatus, TotalScores, HasScanned, UpdatedDate)
-	SELECT		m.matchid
-				, m.eventdate
-				, m.eventstatus
+	SELECT		m.MatchId
+				, m.EventDate
+				, m.EventStatus
 				, m.TotalScores
 				, m.HasScanned
 				, m.UpdatedDate
-	FROM		newMatch AS m WITH(NOLOCK)
-	WHERE		EXISTS (SELECT TOP(1) Matchid
+	FROM		NewMatch AS m WITH(NOLOCK)
+	WHERE		EXISTS (SELECT TOP(1) b.matchid
 						FROM	bodb02.dbo.bettrans b WITH(NOLOCK)
-						WHERE	b.matchid = m.Matchid);
+						WHERE	b.matchid = m.matchid);
 
 	--- RETURN MATCH HAS NEW SCORE
 	SELECT		ms.MatchId

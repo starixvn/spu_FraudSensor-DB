@@ -39,15 +39,16 @@ BEGIN
 	--==REMOVE MATCHES: PREVIOUS 14 DAYS
 	DELETE	d
 	FROM	dbo.DelayGoalMatchScanning d WITH(ROWLOCK)
-	WHERE	DATEDIFF(DAY, d.EventDate, GETDATE()) > 14
+	WHERE	d.IsScanCompleted = 1
+			AND DATEDIFF(DAY, d.EventDate, GETDATE()) > 14;
 
 	----GET MATCHES FROM MAIN DB	
-	;WITH newMatch AS
+	;WITH NewMatch AS
 	(
 	SELECT		[MatchId]		= m.matchid
 			,	[EventDate]		= m.eventdate
 			,	[KickOffTime]	= m.kickofftime
-			,	[eventstatus]	= m.eventstatus
+			,	[EventStatus]	= m.eventstatus
 	FROM		bodb02.dbo.match AS m WITH(NOLOCK)
 	INNER JOIN	bodb02.dbo.League AS l WITH(NOLOCK) 
 				ON	m.leagueid = l.leagueid
@@ -62,22 +63,22 @@ BEGIN
 				, EventDate
 				, KickOffTime
 				, EventStatus
-	FROM		newMatch nm WITH(NOLOCK)
-	WHERE		EXISTS (SELECT TOP(1) Matchid
+	FROM		NewMatch nm WITH(NOLOCK)
+	WHERE		EXISTS (SELECT TOP(1) b.matchid
 						FROM	bodb02.dbo.bettrans b WITH(NOLOCK)
-						WHERE	b.matchid = nm.Matchid);
+						WHERE	b.matchid = nm.matchid);
 	
 	---Insert New Match to DelayGoalMatchScanning: LastScannedTransId default = 0 
-	INSERT INTO dbo.DelayGoalMatchScanning (Matchid, EventDate, KickOffTime, fromTransId, IsScanCompleted)	
+	INSERT INTO dbo.DelayGoalMatchScanning (MatchId, EventDate, KickOffTime, FromTransId, IsScanCompleted)	
 	SELECT		[MatchId]		= mr.matchid
 			,	[EventDate]		= mr.eventdate
 			,	[KickOffTime]	= mr.kickofftime
-			,	[fromTransid]	= 0
+			,	[FromTransId]	= 0
 			,	[IsScanCompleted] = 0
 	FROM		#tmpMatchRunning AS mr WITH(NOLOCK)
 	LEFT JOIN	dbo.DelayGoalMatchScanning AS ms WITH(NOLOCK)
 				ON mr.matchid = ms.matchid
-	WHERE		ms.Matchid IS NULL;
+	WHERE		ms.matchid IS NULL;
 	
 	---Update EventStatus of DelayGoalMatchScanning
 	UPDATE		ms
@@ -87,7 +88,7 @@ BEGIN
 				ON mr.matchid = ms.matchid;
 
 	---Return Match List Need to Scanning
-	SELECT		dms.Matchid
+	SELECT		dms.MatchId
 	FROM		dbo.DelayGoalMatchScanning dms WITH(NOLOCK)
 	WHERE		dms.IsScanCompleted = 0;
 	

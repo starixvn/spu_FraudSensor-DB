@@ -174,7 +174,7 @@ BEGIN
 	END;
 	
 	------------------------------------------------------------------
-	--===10. UPDATE: TABLE DelayGoalMatchScanning (fromTransId= (the last scanned Transid + 1)
+	--===10. UPDATE: TABLE FlagAccountMatchScanning
 	UPDATE		d 
 	SET			d.IsScanCompleted = 1
 	FROM		dbo.FlagAccountMatchScanning d WITH (ROWLOCK, UPDLOCK)

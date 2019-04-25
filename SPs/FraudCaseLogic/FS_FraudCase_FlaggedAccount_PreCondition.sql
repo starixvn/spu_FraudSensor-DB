@@ -40,7 +40,8 @@ BEGIN
 	--==REMOVE MATCHES: PREVIOUS 14 DAYS
 	DELETE	d
 	FROM	dbo.FlagAccountMatchScanning d WITH(ROWLOCK)
-	WHERE	DATEDIFF(DAY, d.EventDate, GETDATE()) > 14
+	WHERE	d.IsScanCompleted = 1
+			AND DATEDIFF(DAY, d.EventDate, GETDATE()) > 14;
 
 	----GET MATCHES FROM MAIN DB
 	;WITH NewMatch AS
@@ -52,7 +53,7 @@ BEGIN
 	FROM		bodb02.dbo.match AS m WITH (NOLOCK)
 	INNER JOIN	bodb02.dbo.League AS l WITH(NOLOCK)
 				ON m.leagueid = l.leagueid
-	WHERE		(m.EventStatus = 'running' OR m.EventStatus = 'completed')
+	WHERE		(m.EventStatus = 'Running' OR m.EventStatus = 'Completed')
 				AND m.sporttype = 1
 				AND m.kickofftime <= GETDATE()
 				AND l.isTest = 0
@@ -63,13 +64,13 @@ BEGIN
 				, KickOffTime
 				, EventStatus
 	FROM		NewMatch nm WITH(NOLOCK)
-	WHERE		EXISTS (SELECT TOP(1) Matchid
+	WHERE		EXISTS (SELECT TOP(1) b.matchid
 						FROM	bodb02.dbo.bettrans b WITH(NOLOCK)
-						WHERE	b.matchid = nm.Matchid);
+						WHERE	b.matchid = nm.matchid);
 
 		
 	---Insert New Match to FlagAccountMatchScanning
-	INSERT INTO dbo.FlagAccountMatchScanning (Matchid, EventDate, KickOffTime, EventStatus, IsScanCompleted)	
+	INSERT INTO dbo.FlagAccountMatchScanning (MatchId, EventDate, KickOffTime, EventStatus, IsScanCompleted)	
 	SELECT		m.MatchId
 				, m.EventDate
 				, m.KickOffTime
@@ -78,14 +79,14 @@ BEGIN
 	FROM		#tmpMatches AS m WITH(NOLOCK)
 	LEFT JOIN	dbo.FlagAccountMatchScanning ms WITH(NOLOCK)
 				ON m.matchid = ms.matchid
-	WHERE		ms.Matchid IS NULL;
+	WHERE		ms.matchid IS NULL;
 	
 	---Update EventStatus of FlagAccountMatchScanning
 	UPDATE		ms
 	SET			ms.EventStatus = m.EventStatus
 	FROM		dbo.FlagAccountMatchScanning ms WITH(ROWLOCK)
 	INNER JOIN	#tmpMatches AS m WITH(NOLOCK)
-				ON m.MatchId = ms.matchid;
+				ON m.matchid = ms.matchid;
 
 	SELECT		DISTINCT MatchId
 	FROM		dbo.FlagAccountMatchScanning ms WITH(NOLOCK)

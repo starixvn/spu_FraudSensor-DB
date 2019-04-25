@@ -35,7 +35,13 @@ BEGIN
 		,	KickOffTime		DATETIME
 		,	EventStatus		NVARCHAR(20)
 	);
-	
+
+	--==REMOVE MATCHES: PREVIOUS 14 DAYS
+	DELETE	d
+	FROM	dbo.DelayGoalMatchScanning d WITH(ROWLOCK)
+	WHERE	DATEDIFF(DAY, d.EventDate, GETDATE()) > 14
+
+	----GET MATCHES FROM MAIN DB	
 	;WITH newMatch AS
 	(
 	SELECT		[MatchId]		= m.matchid

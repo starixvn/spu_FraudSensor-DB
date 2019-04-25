@@ -176,11 +176,12 @@ BEGIN
 	------------------------------------------------------------------
 	--===10. UPDATE: TABLE DelayGoalMatchScanning (fromTransId= (the last scanned Transid + 1)
 	UPDATE		d 
-	SET			d.IsScanCompleted = (CASE WHEN d.EventStatus = 'Completed' THEN 1 ELSE 0 END)
+	SET			d.IsScanCompleted = 1
 	FROM		dbo.FlagAccountMatchScanning d WITH (ROWLOCK, UPDLOCK)
 	INNER JOIN	#tmpMatches mi WITH (NOLOCK)
 				ON mi.MatchId = d.MatchId
-	WHERE		d.IsScanCompleted = 0;
+	WHERE		d.IsScanCompleted = 0
+				AND d.EventStatus = 'Completed';
 
 	EXEC sp_xml_removedocument @idoc;
 END;

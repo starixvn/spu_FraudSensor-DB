@@ -32,7 +32,7 @@ SELECT	@ReturnCode		= 0;
 
 IF	ISNULL(@Category, N'') = N''
 OR	ISNULL(@JobName, N'') = N''
-BEGIN;
+BEGIN
 	RAISERROR('Invalid Input!', 16, 1) WITH NOWAIT;
 	RETURN;
 END;
@@ -44,7 +44,7 @@ IF	NOT EXISTS (
 		WHERE	ctg.name = @Category
 			AND	ctg.category_class = 1
 	)
-BEGIN;
+BEGIN
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_add_category
 							@class	= N'JOB'
 						,	@type	= N'LOCAL'
@@ -64,7 +64,7 @@ FROM	msdb.dbo.sysjobs AS job WITH (NOLOCK)
 WHERE	job.name = @JobName;
 
 IF	@@ROWCOUNT = 0 AND @JobId IS NULL
-BEGIN;
+BEGIN
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_add_job
 							@job_name					= @JobName
 						,	@job_id						= @JobId OUTPUT
@@ -77,7 +77,7 @@ BEGIN;
 	RAISERROR(@Msg, 0, 0, @JobName) WITH NOWAIT;
 END;
 ELSE
-BEGIN;
+BEGIN
 	SELECT	@Msg = N'~~ JOB EXISTS ~~';
 	RAISERROR(@Msg, 0, 0) WITH NOWAIT;
 	
@@ -85,12 +85,12 @@ BEGIN;
 END;
 
 -- Init job steps --
-BEGIN;
+BEGIN
 	SELECT	@Loop	= 1
 		;
 
 	WHILE	@Loop <= @Steps
-	BEGIN;
+	BEGIN
 		SELECT	@StepName	= N'Step ' + CAST(@Loop AS NVARCHAR);
 
 		EXECUTE	@ReturnCode	= msdb.dbo.sp_add_jobstep
@@ -110,7 +110,7 @@ BEGIN;
 END;
 
 -- Define job --
-BEGIN;
+BEGIN
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_update_job
 							@job_id						= @JobId
 						,	@new_name					= @JobName
@@ -135,7 +135,7 @@ END;
 
 -- Define job steps --
 ---- Step 1 ----
-BEGIN;
+BEGIN
 	SELECT	@Loop = 1;
 
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_update_jobstep
@@ -143,7 +143,7 @@ BEGIN;
 						,	@step_name					= N'CmdExec'
 						,	@step_id					= @Loop
 						,	@cmdexec_success_code		= 0
-						,	@on_success_action			= 3
+						,	@on_success_action			= 3				--GOTO Next Steps ON Success Fully
 						,	@on_success_step_id			= 0
 						,	@on_fail_action				= 2
 						,	@on_fail_step_id			= 0
@@ -163,7 +163,7 @@ BEGIN;
 END;
 
 ---- Step 2 ----
-BEGIN;
+BEGIN
 	SELECT	@Loop = 2;
 
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_update_jobstep
@@ -171,7 +171,7 @@ BEGIN;
 						,	@step_name					= N'TSQL'
 						,	@step_id					= @Loop
 						,	@cmdexec_success_code		= 0
-						,	@on_success_action			= 3
+						,	@on_success_action			= 1	--QUIT ON SUCCESSFULLY
 						,	@on_success_step_id			= 0
 						,	@on_fail_action				= 2
 						,	@on_fail_step_id			= 0
@@ -181,7 +181,7 @@ BEGIN;
 						,	@subsystem					= N'TSQL'
 						,	@database_name				= N''
 						,	@flags						= 0
-						,	@command					= N'';
+						,	@command					= N'exec <<SP NAME>>'; -- Enter SP NAME
 
 	IF	@@ERROR <> 0 OR @ReturnCode <> 0
 		GOTO QuitWithRollback;
@@ -191,7 +191,7 @@ BEGIN;
 END;
 
 ---- Job start at step ----
-BEGIN;
+BEGIN
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_update_job
 							@job_id						= @JobId
 						,	@start_step_id				= 1
@@ -205,7 +205,7 @@ BEGIN;
 END;
 
 -- Job schedule --
-BEGIN;
+BEGIN
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_add_jobschedule
 							@job_id						= @JobId
 						,	@name						= N''
@@ -230,7 +230,7 @@ BEGIN;
 END;
 
 -- Job server --
-BEGIN;
+BEGIN
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_add_jobserver
 							@job_id						= @JobId
 						,	@server_name				= N'(local)'

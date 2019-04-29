@@ -2,7 +2,7 @@ SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
 GO
-ALTER PROCEDURE [dbo].[FS_ArchiveData_Arbitrage] 
+ALTER PROCEDURE [dbo].[FS_Task_ArchiveData_Arbitrage] 
 AS
 /*
 	Created: 20190419@CaseyHuynh

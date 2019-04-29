@@ -3,7 +3,7 @@
 	Job Name:	FS-ArchiveData_Arbitrage
 	Server:		DB054
 	Revision:
-		- 20190423@CaseyHuynh	Initiate on GIT - [Redmine: #112217]
+		- 20190423@CaseyHuynh	Initiate on GIT - Schedule: Weekly/Friday/5:00AM - [Redmine: #112217]
 */
 
 SET NOCOUNT ON;
@@ -67,6 +67,7 @@ IF	@@ROWCOUNT = 0 AND @JobId IS NULL
 BEGIN;
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_add_job
 							@job_name					= @JobName
+						,	@owner_login_name			= N'sa'
 						,	@job_id						= @JobId OUTPUT
 						;
 
@@ -122,7 +123,6 @@ BEGIN;
 						,	@delete_level				= 0
 						,	@description				= @Description
 						,	@category_name				= @Category
-						,	@owner_login_name			= N'sa'
 						,	@notify_email_operator_name	= @EmailOperator
 						;
 
@@ -143,7 +143,7 @@ BEGIN;
 						,	@step_name					= N'01_ArchiveData_Arbitrage'
 						,	@step_id					= @Loop
 						,	@cmdexec_success_code		= 0
-						,	@on_success_action			= 3
+						,	@on_success_action			= 1
 						,	@on_success_step_id			= 0
 						,	@on_fail_action				= 2
 						,	@on_fail_step_id			= 0
@@ -153,7 +153,7 @@ BEGIN;
 						,	@subsystem					= N'TSQL'
 						,	@database_name				= N'bodb_FraudSensor'
 						,	@flags						= 0
-						,	@command					= N'';
+						,	@command					= N'exec FS_Task_ArchiveData_Arbitrage';
 
 	IF	@@ERROR <> 0 OR @ReturnCode <> 0
 		GOTO QuitWithRollback;
@@ -180,7 +180,7 @@ END;
 BEGIN;
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_add_jobschedule
 							@job_id						= @JobId
-						,	@name						= N'ArchiveData_Arbitrage: Weely-Friday-5:00AM'
+						,	@name						= N'ArchiveData_Arbitrage: Weekly-Friday-5:00AM'
 						,	@enabled					= 1
 						,	@freq_type					= 8
 						,	@freq_interval				= 32

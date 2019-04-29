@@ -25,7 +25,7 @@ DECLARE	@Category		NVARCHAR(128)	= N''
 	,	@JobName		NVARCHAR(128)	= N''
 	,	@Description	NVARCHAR(512)	= N''
 	,	@EmailOperator	NVARCHAR(128)	= N''
-	,	@Steps			INT				= 0
+	,	@Steps			INT				= 1
 	;
 
 SELECT	@ReturnCode		= 0;
@@ -67,6 +67,7 @@ IF	@@ROWCOUNT = 0 AND @JobId IS NULL
 BEGIN
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_add_job
 							@job_name					= @JobName
+						,	@owner_login_name			= N'sa'
 						,	@job_id						= @JobId OUTPUT
 						;
 
@@ -86,8 +87,7 @@ END;
 
 -- Init job steps --
 BEGIN
-	SELECT	@Loop	= 1
-		;
+	SELECT	@Loop	= 1;
 
 	WHILE	@Loop <= @Steps
 	BEGIN
@@ -122,7 +122,6 @@ BEGIN
 						,	@delete_level				= 0
 						,	@description				= @Description
 						,	@category_name				= @Category
-						,	@owner_login_name			= N'sa'
 						,	@notify_email_operator_name	= @EmailOperator
 						;
 
@@ -181,7 +180,7 @@ BEGIN
 						,	@subsystem					= N'TSQL'
 						,	@database_name				= N''
 						,	@flags						= 0
-						,	@command					= N'exec <<SP NAME>>'; -- Enter SP NAME
+						,	@command					= N'EXECUTE <<SP NAME>>;'; -- Enter SP NAME
 
 	IF	@@ERROR <> 0 OR @ReturnCode <> 0
 		GOTO QuitWithRollback;

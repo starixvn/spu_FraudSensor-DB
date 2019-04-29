@@ -23,7 +23,7 @@ DECLARE @ReturnCode		INT
 -- Input --
 DECLARE	@Category		NVARCHAR(128)	= N'FraudSensor'
 	,	@JobName		NVARCHAR(128)	= N'FS-ArchiveData_Arbitrage'
-	,	@Description	NVARCHAR(512)	= N'ArchiveData Arbitrage by BU day'
+	,	@Description	NVARCHAR(512)	= N'Archive Data Arbitrage by BU Day'
 	,	@EmailOperator	NVARCHAR(128)	= N''
 	,	@Steps			INT				= 1
 	;
@@ -32,7 +32,7 @@ SELECT	@ReturnCode		= 0;
 
 IF	ISNULL(@Category, N'') = N''
 OR	ISNULL(@JobName, N'') = N''
-BEGIN;
+BEGIN
 	RAISERROR('Invalid Input!', 16, 1) WITH NOWAIT;
 	RETURN;
 END;
@@ -44,7 +44,7 @@ IF	NOT EXISTS (
 		WHERE	ctg.name = @Category
 				AND	ctg.category_class = 1
 	)
-BEGIN;
+BEGIN
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_add_category
 							@class	= N'JOB'
 						,	@type	= N'LOCAL'
@@ -64,7 +64,7 @@ FROM	msdb.dbo.sysjobs AS job WITH (NOLOCK)
 WHERE	job.name = @JobName;
 
 IF	@@ROWCOUNT = 0 AND @JobId IS NULL
-BEGIN;
+BEGIN
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_add_job
 							@job_name					= @JobName
 						,	@owner_login_name			= N'sa'
@@ -78,7 +78,7 @@ BEGIN;
 	RAISERROR(@Msg, 0, 0, @JobName) WITH NOWAIT;
 END;
 ELSE
-BEGIN;
+BEGIN
 	SELECT	@Msg = N'~~ JOB EXISTS ~~';
 	RAISERROR(@Msg, 0, 0) WITH NOWAIT;
 	
@@ -86,12 +86,11 @@ BEGIN;
 END;
 
 -- Init job steps --
-BEGIN;
-	SELECT	@Loop	= 1
-		;
+BEGIN
+	SELECT	@Loop	= 1;
 
 	WHILE	@Loop <= @Steps
-	BEGIN;
+	BEGIN
 		SELECT	@StepName	= N'Step ' + CAST(@Loop AS NVARCHAR);
 
 		EXECUTE	@ReturnCode	= msdb.dbo.sp_add_jobstep
@@ -111,7 +110,7 @@ BEGIN;
 END;
 
 -- Define job --
-BEGIN;
+BEGIN
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_update_job
 							@job_id						= @JobId
 						,	@new_name					= @JobName
@@ -135,7 +134,7 @@ END;
 
 -- Define job steps --
 ---- Step 1 ----
-BEGIN;
+BEGIN
 	SELECT	@Loop = 1;
 
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_update_jobstep
@@ -153,7 +152,7 @@ BEGIN;
 						,	@subsystem					= N'TSQL'
 						,	@database_name				= N'bodb_FraudSensor'
 						,	@flags						= 0
-						,	@command					= N'exec FS_Task_ArchiveData_Arbitrage';
+						,	@command					= N'EXECUTE FS_Task_ArchiveData_Arbitrage;';
 
 	IF	@@ERROR <> 0 OR @ReturnCode <> 0
 		GOTO QuitWithRollback;
@@ -163,7 +162,7 @@ BEGIN;
 END; 
 
 ---- Job start at step ----
-BEGIN;
+BEGIN
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_update_job
 							@job_id						= @JobId
 						,	@start_step_id				= 1
@@ -177,7 +176,7 @@ BEGIN;
 END;
 
 -- Job schedule --
-BEGIN;
+BEGIN
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_add_jobschedule
 							@job_id						= @JobId
 						,	@name						= N'ArchiveData_Arbitrage: Weekly-Friday-5:00AM'
@@ -202,7 +201,7 @@ BEGIN;
 END;
 
 -- Job server --
-BEGIN;
+BEGIN
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_add_jobserver
 							@job_id						= @JobId
 						,	@server_name				= N'(local)'

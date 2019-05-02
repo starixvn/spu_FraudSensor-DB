@@ -21,6 +21,7 @@ AS
 		- 20190219@Long: Store more info (Currency & Username) for table SuspiciousCutomers [Redmine ID: 107858]
 		- 20190319@Casey.Huynh: Enhance Performance table #tmpFraudTickets [110060]
 		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [110060]
+		- 20190410@Casey.Huynh: Implement, update hasscanned = 1 for deleted Matches [111454]
 
 	Param's Explanation (filtered by):
 */
@@ -105,18 +106,18 @@ BEGIN
 		,	[CurrencyId]		= ans.currency
 		,	[CurrencyName]		= ans.CurrencyName
 		,	[MatchId]			= ans.matchid
-		,	[EventDate]			= tch.EventDate
+		,	[EventDate]			= fms.EventDate
 		,	[TransId]			= ans.transid
-	FROM bodb02.dbo.match tch WITH (NOLOCK)
-	INNER JOIN bodb02.dbo.bettrans ans WITH (NOLOCK) ON tch.matchid = ans.matchid
+	FROM	dbo.FlagAccountMatchScanning fms WITH (NOLOCK)
+	INNER JOIN bodb02.dbo.bettrans ans WITH (NOLOCK) ON fms.matchid = ans.matchid
 	INNER JOIN #tmpFlaggedAccounts fa WITH (NOLOCK) ON fa.custid = ans.custid
-	WHERE tch.matchid IN (SELECT MatchId FROM #tmpMatches WITH (NOLOCK))
+	WHERE fms.matchid IN (SELECT m.MatchId FROM #tmpMatches m WITH (NOLOCK))
 		AND ans.bettype IN (
 			SELECT DISTINCT spb.BetType
 			FROM bodb02.dbo.SportBettypeMatrix spb WITH (NOLOCK)
 			WHERE spb.ProductID = 1
 		)
-		AND ans.custid NOT IN (SELECT CustId FROM dbo.DelayGoalAccount WITH (NOLOCK))
+		AND ans.custid NOT IN (SELECT dga.CustId FROM dbo.DelayGoalAccount dga WITH (NOLOCK))
 		AND ans.currency <> 20;
 
 	-- UPDATE match info for ScannedMatch table
@@ -172,6 +173,16 @@ BEGIN
 
 	END;
 	
+	------------------------------------------------------------------
+	--===10. UPDATE: TABLE FlagAccountMatchScanning
+	UPDATE		d 
+	SET			d.IsScanCompleted = 1
+	FROM		dbo.FlagAccountMatchScanning d WITH (ROWLOCK, UPDLOCK)
+	INNER JOIN	#tmpMatches mi WITH (NOLOCK)
+				ON mi.MatchId = d.MatchId
+	WHERE		d.IsScanCompleted = 0
+				AND d.EventStatus = 'Completed';
+
 	EXEC sp_xml_removedocument @idoc;
 END;
 

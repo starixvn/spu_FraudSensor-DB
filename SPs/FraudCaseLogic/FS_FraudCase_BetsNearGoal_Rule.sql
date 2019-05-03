@@ -16,8 +16,10 @@ AS
 	Revisions:	
 		- 20181207@Long: Created [Redmine ID: 106079]
 		- 20190219@Long: Store more info (Currency & Username) for table SuspiciousCutomers [Redmine ID: 107858]
-		- 20190319@Casey.Huynh: Enhance Performance table #tmpFraudTickets [110060]
-		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [110060]
+		- 20190319@Casey.Huynh: Enhance Performance table #tmpFraudTickets [Redmine ID: 110060]
+		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [Redmine ID: 110060]		
+		- 20190503@Long.Luu:	Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
+
 	Param's Explanation (filtered by):
 */
 BEGIN
@@ -110,7 +112,8 @@ BEGIN
 		,	tch.eventdate
 		,	ans.liveawayscore
 		,	ans.livehomescore
-		,	ans.transid;
+		,	ans.transid
+	OPTION (MAXDOP 1);
 
 	DELETE t 
 	FROM #tmpFraudTickets t

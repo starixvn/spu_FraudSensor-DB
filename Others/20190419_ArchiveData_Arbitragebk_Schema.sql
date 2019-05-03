@@ -31,23 +31,11 @@ CREATE TABLE dbo.ArbitrageTicketDetails_bk(
 ) ON DATA
 
 CREATE CLUSTERED INDEX CIX_ArbitrageTicketDetails_bk_MatchIdCustId ON dbo.ArbitrageTicketDetails_bk
-(
+(	
+	EventDate	ASC,
 	MatchId	ASC,
 	CustId ASC
 ) ON DATA
-
-CREATE NONCLUSTERED INDEX NCIX_ArbitrageTicketDetails_bk_Bettype_Handicap_LiveHomeAwayScore ON dbo.ArbitrageTicketDetails_bk
-(
-	BetType ASC,
-	Handicap ASC,
-	LiveHomeScore ASC,
-	LiveAwayScore ASC
-) ON IDX
-
-CREATE NONCLUSTERED INDEX NCIX_ArbitrageTicketDetails_bk_EventDate ON dbo.ArbitrageTicketDetails_bk
-(
-	EventDate ASC
-) ON IDX
 
 --------------------------------------------------------------------
 CREATE TABLE dbo.ArbitrageSuspiciousInfo_bk(
@@ -64,25 +52,12 @@ CREATE TABLE dbo.ArbitrageSuspiciousInfo_bk(
 	VerifiedBy			INT NULL,
 	CONSTRAINT PK_ArbitrageSuspiciousInfo_bk PRIMARY KEY CLUSTERED 
 	(
+		EventDate ASC,
 		FraudCaseId ASC,
 		MatchId ASC,
 		CustId ASC
 	) ON DATA
 ) ON DATA 
-
-
-CREATE NONCLUSTERED INDEX NCIX_ArbitrageSuspiciousInfo_bk_CustId ON dbo.ArbitrageSuspiciousInfo_bk
-(
-	CustId ASC
-)
-INCLUDE (IsVerified) ON IDX
-GO
-
-CREATE NONCLUSTERED INDEX NCIX_ArbitrageSuspiciousInfo_bk_EventDate ON dbo.ArbitrageSuspiciousInfo_bk
-(
-	EventDate ASC
-) ON IDX
-GO
 
 ----===================C. ALTER TABLES=========================
 ----===========================================================

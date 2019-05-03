@@ -8,7 +8,7 @@
 
 SET NOCOUNT ON;
 
-USE msdb
+USE msdb;
 GO
 
 BEGIN TRANSACTION;
@@ -22,10 +22,10 @@ DECLARE @ReturnCode		INT
 
 -- Input --
 DECLARE	@Category		NVARCHAR(128)	= N'FraudSensor'
-	,	@JobName		NVARCHAR(128)	= N'FS-ArchiveData_Arbitrage'
-	,	@Description	NVARCHAR(512)	= N'Archive Data Arbitrage by BU Day'
-	,	@EmailOperator	NVARCHAR(128)	= N''
-	,	@Steps			INT				= 1
+	,	@JobName		NVARCHAR(128)	= N'FS-ArchiveCleanUpData'
+	,	@Description	NVARCHAR(512)	= N'Archive CleanUp Data'
+	,	@EmailOperator	NVARCHAR(128)	= N'vnDBA'
+	,	@Steps			INT				= 3
 	;
 
 SELECT	@ReturnCode		= 0;
@@ -42,7 +42,7 @@ IF	NOT EXISTS (
 		SELECT	ctg.name
 		FROM	msdb.dbo.syscategories AS ctg WITH (NOLOCK)
 		WHERE	ctg.name = @Category
-				AND	ctg.category_class = 1
+			AND	ctg.category_class = 1
 	)
 BEGIN
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_add_category
@@ -67,7 +67,7 @@ IF	@@ROWCOUNT = 0 AND @JobId IS NULL
 BEGIN
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_add_job
 							@job_name					= @JobName
-						,	@owner_login_name			= N'sa'
+						,	@owner_login_name			= N'spuTeam'
 						,	@job_id						= @JobId OUTPUT
 						;
 
@@ -116,7 +116,7 @@ BEGIN
 						,	@new_name					= @JobName
 						,	@enabled					= 1
 						,	@notify_level_eventlog		= 0
-						,	@notify_level_email			= 0
+						,	@notify_level_email			= 2
 						,	@notify_level_netsend		= 0
 						,	@notify_level_page			= 0
 						,	@delete_level				= 0
@@ -138,28 +138,84 @@ BEGIN
 	SELECT	@Loop = 1;
 
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_update_jobstep
-							@job_id						= @JobId
-						,	@step_name					= N'01_ArchiveData_Arbitrage'
-						,	@step_id					= @Loop
-						,	@cmdexec_success_code		= 0
-						,	@on_success_action			= 1
-						,	@on_success_step_id			= 0
-						,	@on_fail_action				= 2
-						,	@on_fail_step_id			= 0
-						,	@retry_attempts				= 0
-						,	@retry_interval				= 0
-						,	@os_run_priority			= 0
-						,	@subsystem					= N'TSQL'
-						,	@database_name				= N'bodb_FraudSensor'
-						,	@flags						= 0
-						,	@command					= N'EXECUTE FS_Task_ArchiveData_Arbitrage;';
+						@job_id						= @JobId
+					,	@step_name					= N'01.Remove tickets before BalanceUp'
+					,	@step_id					= @Loop
+					,	@cmdexec_success_code		= 0
+					,	@on_success_action			= 3
+					,	@on_success_step_id			= 0
+					,	@on_fail_action				= 2
+					,	@on_fail_step_id			= 0
+					,	@retry_attempts				= 0
+					,	@retry_interval				= 0
+					,	@os_run_priority			= 0
+					,	@subsystem					= N'TSQL'
+					,	@database_name				= N'bodb_FraudSensor'
+					,	@flags						= 0
+					,	@command					= N'EXECUTE	FS_Task_TicketsRemoveBeforeBalanceUp;';
 
 	IF	@@ERROR <> 0 OR @ReturnCode <> 0
 		GOTO QuitWithRollback;
 
-	SELECT	@Msg = N'STEP %d ADDED';
+	SELECT	@Msg = N'STEP %d UPDATED';
 	RAISERROR(@Msg, 0, 0, @Loop) WITH NOWAIT;
-END; 
+END;
+
+---- Step 2 ----
+BEGIN
+	SELECT	@Loop = 2;		
+
+	EXECUTE	@ReturnCode	= msdb.dbo.sp_update_jobstep
+						@job_id						= @JobId
+					,	@step_name					= N'02.Remove UserLogs within 7 latest days'
+					,	@step_id					= @Loop
+					,	@cmdexec_success_code		= 0
+					,	@on_success_action			= 3
+					,	@on_success_step_id			= 0
+					,	@on_fail_action				= 2
+					,	@on_fail_step_id			= 0
+					,	@retry_attempts				= 0
+					,	@retry_interval				= 0
+					,	@os_run_priority			= 0
+					,	@subsystem					= N'TSQL'
+					,	@database_name				= N'bodb_FraudSensor'
+					,	@flags						= 0
+					,	@command					= N'EXECUTE FS_Task_UserLogsRemove;';
+
+	IF	@@ERROR <> 0 OR @ReturnCode <> 0
+		GOTO QuitWithRollback;
+
+	SELECT	@Msg = N'STEP %d UPDATED';
+	RAISERROR(@Msg, 0, 0, @Loop) WITH NOWAIT;
+END;
+
+---- Step 3 ----
+BEGIN
+	SELECT	@Loop = 3;		
+
+	EXECUTE	@ReturnCode	= msdb.dbo.sp_update_jobstep
+						@job_id						= @JobId
+					,	@step_name					= N'03.ArchiveData_Arbitrage'
+					,	@step_id					= @Loop
+					,	@cmdexec_success_code		= 0
+					,	@on_success_action			= 1
+					,	@on_success_step_id			= 0
+					,	@on_fail_action				= 2
+					,	@on_fail_step_id			= 0
+					,	@retry_attempts				= 0
+					,	@retry_interval				= 0
+					,	@os_run_priority			= 0
+					,	@subsystem					= N'TSQL'
+					,	@database_name				= N'bodb_FraudSensor'
+					,	@flags						= 0
+					,	@command					= N'EXECUTE FS_Task_ArchiveData_Arbitrage;';
+
+	IF	@@ERROR <> 0 OR @ReturnCode <> 0
+		GOTO QuitWithRollback;
+
+	SELECT	@Msg = N'STEP %d UPDATED';
+	RAISERROR(@Msg, 0, 0, @Loop) WITH NOWAIT;
+END;
 
 ---- Job start at step ----
 BEGIN
@@ -179,7 +235,7 @@ END;
 BEGIN
 	EXECUTE	@ReturnCode	= msdb.dbo.sp_add_jobschedule
 							@job_id						= @JobId
-						,	@name						= N'ArchiveData_Arbitrage: Weekly-Friday-5:00AM'
+						,	@name						= N''
 						,	@enabled					= 1
 						,	@freq_type					= 8
 						,	@freq_interval				= 32
@@ -187,9 +243,9 @@ BEGIN
 						,	@freq_subday_interval		= 0
 						,	@freq_relative_interval		= 0
 						,	@freq_recurrence_factor		= 1
-						,	@active_start_date			= 20190426
+						,	@active_start_date			= 20180505
 						,	@active_end_date			= 99991231
-						,	@active_start_time			= 50000
+						,	@active_start_time			= 40000
 						,	@active_end_time			= 235959
 						;
 

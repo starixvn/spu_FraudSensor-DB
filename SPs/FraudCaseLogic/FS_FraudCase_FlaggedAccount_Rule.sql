@@ -19,9 +19,10 @@ AS
 		- 20180312@CaseyHuynh: Correct Code Syntax
 		- 20181114@Long: Split data in SuspiciousInfo by Currency [Redmine ID: #104707]
 		- 20190219@Long: Store more info (Currency & Username) for table SuspiciousCutomers [Redmine ID: 107858]
-		- 20190319@Casey.Huynh: Enhance Performance table #tmpFraudTickets [110060]
-		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [110060]
-		- 20190410@Casey.Huynh: Implement, update hasscanned = 1 for deleted Matches [111454]
+		- 20190319@Casey.Huynh: Enhance Performance table #tmpFraudTickets [Redmine ID: 110060]
+		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [Redmine ID: 110060]
+		- 20190410@Casey.Huynh: Implement, update hasscanned = 1 for deleted Matches [Redmine ID: 111454]
+		- 20190503@Long.Luu:	Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
 
 	Param's Explanation (filtered by):
 */
@@ -118,7 +119,8 @@ BEGIN
 			WHERE spb.ProductID = 1
 		)
 		AND ans.custid NOT IN (SELECT dga.CustId FROM dbo.DelayGoalAccount dga WITH (NOLOCK))
-		AND ans.currency <> 20;
+		AND ans.currency <> 20
+	OPTION (MAXDOP 1);
 
 	-- UPDATE match info for ScannedMatch table
 	DELETE FROM dbo.ScannedMatch WITH (ROWLOCK)

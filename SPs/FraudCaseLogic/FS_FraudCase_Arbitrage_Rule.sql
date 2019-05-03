@@ -20,10 +20,11 @@ AS
 		- 20180926@Long.Luu: Performance tunning [Redmine ID: 000000]
 		- 20180926@CASEY:Implement IP Rule [Redmine ID: 109092]
 		- 20190316@CaseyHuynh: Enhance Performance, Update SuspiciousCustomer [Redmine ID: 110060]
-		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [110060]
-		- 20190314@Casey.Huynh: Implement, scan for completed Match [110566]
-		- 20190326@Casey.Huynh: Fix Data NUll [110914]
+		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [Redmine ID: 110060]
+		- 20190314@Casey.Huynh: Implement, scan for completed Match [Redmine ID: 110566]
+		- 20190326@Casey.Huynh: Fix Data NUll [Redmine ID: 110914]
 		- 20190403@Long.Luu: Adding LiveHomeScore, LiveAwayScore for ArbitrageTicketDetails table [Redmine ID: 111069]
+		- 20190503@Long.Luu:	Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
 
 	Param's Explanation (filtered by):
 */
@@ -338,13 +339,13 @@ BEGIN
 	
 	---- Merge Group By IP
 	-----Find IP has more than one groupId
-	Declare @Matchid INT
+	DECLARE @Matchid INT;
 
 	INSERT INTO #tmpMatchList(MatchId)
 	SELECT DISTINCT MatchId
-	FROM #tmpMatches
+	FROM #tmpMatches WITH(NOLOCK);
 	
-	SELECT @Matchid = (SELECT TOP(1) Matchid FROM #tmpMatchList WITH(NOLOCK))
+	SELECT @Matchid = (SELECT TOP(1) Matchid FROM #tmpMatchList WITH(NOLOCK));
 
 	WHILE (@Matchid IS NOT NULL)
 	BEGIN
@@ -424,7 +425,8 @@ BEGIN
 				INNER JOIN #tmpBettransAssociation bb WITH(NOLOCK) ON  r.MatchId = bb.MatchId AND r.GroupId = bb.GroupId AND r.Bettype = bb.Bettype 
 				AND r.LiveHomeScore = bb.LiveHomeScore AND r.LiveAwayScore = bb.LiveAwayScore AND r.Handicap = bb.Handicap
 	WHERE		r.TotalStakeH > @MaxStakeToBeChecked AND r.TotalStakeA > @MaxStakeToBeChecked
-	ORDER BY	MatchId, LiveHomeScore, LiveAwayScore, Bettype, Handicap, transid;
+	ORDER BY	MatchId, LiveHomeScore, LiveAwayScore, Bettype, Handicap, transid
+	OPTION (MAXDOP 1);
 	
 	--=======UPDATE: ISFraud by Match, totallivesoscore, bettype, Handicap
 	INSERT INTO #tmpFraudIP(MatchId, LiveHomeScore, LiveAwayScore, Bettype, Handicap, IP)
@@ -463,9 +465,9 @@ BEGIN
 												AND t1.LiveHomeScore = ft.LiveHomeScore AND t1.LiveAwayScore = ft.LiveAwayScore 
 												AND t1.CustId = ft.CustId AND t1.GroupId = ft.GroupId  AND t1.IsIPFraud = ft.IsIPFraud												
 											FOR XML PATH('')), 1, 1, '')
-			,	[TicketCounter]		= Count(ft.transId)
+			,	[TicketCounter]		= COUNT(ft.transId)
 			,	[IsIPFraud]			= ft.IsIPFraud
-			,	[GraphDBGroupId]	= Min(ft.GroupId)
+			,	[GraphDBGroupId]	= MIN(ft.GroupId)
 		FROM		#tmpFraudTickets ft WITH (NOLOCK)
 		GROUP BY	ft.CustId, ft.MatchId, ft.EventDate, ft.GroupId, ft.Bettype, ft.Handicap, ft.LiveHomeScore, ft.LiveAwayScore, ft.IsIPFraud;		
 

@@ -15,9 +15,11 @@ AS
 		- 20180406@Long: remove ticket status to scan for running matches
 		- 20180312@CaseyHuynh: Correct Code Syntax
 		- 20190219@Long: Store more info (Currency & Username) for table SuspiciousCutomers [Redmine ID: 107858]
-		- 20190319@Casey.Huynh: Enhance Performance table #tmpFraudTickets [110060]
-		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [110060]
-		- 20190329@Casey.Huynh: Implement Completed Match when the score is rejected: Add code update table MatchScore completed Status to sp rule [111079]
+		- 20190319@Casey.Huynh: Enhance Performance table #tmpFraudTickets [Redmine ID: 110060]
+		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [Redmine ID: 110060]
+		- 20190329@Casey.Huynh: Implement Completed Match when the score is rejected: Add code update table MatchScore completed Status to sp rule [Redmine ID: 111079]
+		- 20190503@Long.Luu:	Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
+
 	Param's Explanation (filtered by):
 */
 BEGIN
@@ -203,7 +205,8 @@ BEGIN
 			,	ans.stake
 			,	ans.actualrate
 		) bt
-	WHERE bt.TotalStake >= bt.Maxbet;
+	WHERE bt.TotalStake >= bt.Maxbet
+	OPTION (MAXDOP 1);
 	
 	--===4. UPDATE: TABLE "ScannedMatch" (ScannedDate,SuspiciousTicketsCount)===========	
 	UPDATE sm WITH (ROWLOCK, UPDLOCK)

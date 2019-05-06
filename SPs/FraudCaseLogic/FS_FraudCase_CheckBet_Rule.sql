@@ -269,7 +269,7 @@ BEGIN
 		   INNER JOIN #tmpSportbooksBettype s WITH(NOLOCK) ON s.bettype = b.bettype
 		   INNER JOIN #tmpMatches m  WITH(NOLOCK) ON bt.matchid = m.matchid
 		WHERE m.WinlossDate = @WinlossDate
-			AND b.status = 'Reject'
+			AND b.status = N'Reject'
 			AND bt.currency NOT IN (20, 27, 28)
 			AND bt.custid <> 98632			
 			AND bt.transid NOT IN (SELECT TransId FROM dbo.[ChangedTicket] WITH(NOLOCK))

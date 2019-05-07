@@ -23,7 +23,8 @@ AS
 		- 20190115@Casey: Remove Trace Data script  [Redmine ID: #107398]
 		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [110060]
 		- 20190325@Long.Luu: Fix issue with cash out tickets [Redmine ID: #107398]
-
+		- 20190506@John.Ngo: Check Bet case only need to check the Rejected status if changed [Redmine ID: #111067]
+		 
 	Param's Explanation (filtered by):
 */
 BEGIN
@@ -268,6 +269,7 @@ BEGIN
 		   INNER JOIN #tmpSportbooksBettype s WITH(NOLOCK) ON s.bettype = b.bettype
 		   INNER JOIN #tmpMatches m  WITH(NOLOCK) ON bt.matchid = m.matchid
 		WHERE m.WinlossDate = @WinlossDate
+			AND b.status = N'Reject'
 			AND bt.currency NOT IN (20, 27, 28)
 			AND bt.custid <> 98632			
 			AND bt.transid NOT IN (SELECT TransId FROM dbo.[ChangedTicket] WITH(NOLOCK))
@@ -557,3 +559,6 @@ BEGIN
 	WHERE	DATEDIFF(dd, ScannedDate, GETDATE()) > 15;
 
 END;
+
+GO
+/*<info serverAlias="DBFS-bodb_FraudSensor" executers="bodbSPUNet" isFunction="0" isNested="0"></info>*/

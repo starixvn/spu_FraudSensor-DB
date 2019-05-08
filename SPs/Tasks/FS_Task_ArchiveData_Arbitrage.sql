@@ -56,7 +56,7 @@ BEGIN
 								WHERE asi.EventDate < @BUDate);
 
 		--========== MOVE DATA ArbitrageSuspiciousInfo
-		WHILE EXISTS (SELECT 1 FROM dbo.ArbitrageSuspiciousInfo_bk WITH(ROWLOCK) WHERE EventDate = @EventDate)
+		WHILE EXISTS (SELECT 1 FROM dbo.ArbitrageSuspiciousInfo_bk WITH(NOLOCK) WHERE EventDate = @EventDate)
 		BEGIN
 				DELETE TOP(1000)
 				FROM dbo.ArbitrageSuspiciousInfo_bk WITH(ROWLOCK)
@@ -78,7 +78,7 @@ BEGIN
 		FROM		dbo.ArbitrageSuspiciousInfo AS asi WITH(NOLOCK)
 		WHERE		asi.EventDate = @EventDate;
 				
-		WHILE EXISTS (SELECT 1 FROM dbo.ArbitrageSuspiciousInfo WITH(ROWLOCK) WHERE EventDate = @EventDate)
+		WHILE EXISTS (SELECT 1 FROM dbo.ArbitrageSuspiciousInfo WITH(NOLOCK) WHERE EventDate = @EventDate)
 		BEGIN
 				DELETE TOP(1000)
 				FROM dbo.ArbitrageSuspiciousInfo WITH(ROWLOCK)
@@ -94,7 +94,7 @@ BEGIN
 							WHERE	EventDate < @BUDate);
 
 		--========== MOVE DATA ArbitrageTicketDetails
-		WHILE EXISTS (SELECT 1 FROM dbo.ArbitrageTicketDetails_bk WITH(ROWLOCK) WHERE EventDate = @EventDate)
+		WHILE EXISTS (SELECT 1 FROM dbo.ArbitrageTicketDetails_bk WITH(NOLOCK) WHERE EventDate = @EventDate)
 		BEGIN
 				DELETE	TOP(1000)
 				FROM	dbo.ArbitrageTicketDetails_bk WITH(ROWLOCK)
@@ -126,7 +126,7 @@ BEGIN
 		INNER JOIN	#tmpMovingMatch AS m WITH(NOLOCK)
 					ON	atd.MatchId = m.MatchId;
 
-		WHILE EXISTS (SELECT 1 FROM dbo.ArbitrageTicketDetails WITH(ROWLOCK) WHERE EventDate = @EventDate)
+		WHILE EXISTS (SELECT 1 FROM dbo.ArbitrageTicketDetails WITH(NOLOCK) WHERE EventDate = @EventDate)
 		BEGIN
 				DELETE TOP(1000)
 				FROM	dbo.ArbitrageTicketDetails WITH(ROWLOCK)

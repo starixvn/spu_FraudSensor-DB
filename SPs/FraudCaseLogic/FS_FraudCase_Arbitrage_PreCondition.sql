@@ -22,6 +22,7 @@ AS
 		- 20190403@Long.Luu: Adding LiveHomeScore, LiveAwayScore for ArbitrageTicketDetails table [Redmine ID: 111069]
 		- 20190404@Casey.Huynh: Implement, not scan Match if it has no ticket in bettran tables [111454]
 		- 20190509@Casey.Huynh:	Trace Log Info [Redmine ID: 110672]
+		- 20190520@Casey.Huynh: Remove Trace Log
 
 	Param's Explanation (filtered by):  
 	
@@ -38,20 +39,6 @@ BEGIN
 	BEGIN
 		DROP TABLE	#tmpCustomerList;
 	END
-		---=======Trace Log Info: Start=========================
-	DECLARE @LogInfo			NVARCHAR(200)
-			, @TraceGroup		INT
-			, @StepStartTime	DATETIME
-			, @StepEndTime		DATETIME
-			, @SPName			VARCHAR(200) = 'FS_FraudCase_Arbitrage_PreCondition'
-			, @StepDesc			NVARCHAR(200)
-			, @StepID			INT
-			, @MatchHDPCustCount		INT
-			, @TraceMatchIDCount	INT;
-	
-	SET @TraceGroup = ISNULL((SELECT MAX(TraceGroup) FROM dbo.Trace_Log WITH(NOLOCK)),0) + 1;
-	---=======Trace Log Info: End=========================
-
 
 	CREATE TABLE #tmpCustomerList
 	(
@@ -70,13 +57,6 @@ BEGIN
 			, CustId		ASC
 			)
 	);	
-
-	---=======Trace Log Info: Start STEP 3=========================	
-		SET @StepID = 1
-		SET @StepDesc = 'ALL STEPS'
-		SET @StepStartTime = GETDATE()
-	---=======Trace Log Info: End  =========================
-
 
 	IF OBJECT_ID('tempdb..#tmpCompletedMatch') IS NOT NULL
 	BEGIN
@@ -190,21 +170,6 @@ BEGIN
 				, Handicap
 				, CustId
 	FROM		#tmpCustomerList c WITH(NOLOCK);
-
-	---=======Trace Log Info: Start=========================
-	SET @StepEndTime = GETDATE();
-	SET @MatchHDPCustCount = (SELECT COUNT(1) FROM #tmpCustomerList WITH(NOLOCK));
-	SET @TraceMatchIDCount = (SELECT COUNT(DISTINCT MatchID) FROM #tmpCustomerList WITH(NOLOCK));
-
-
-	SET @LogInfo = '#tmpCustomerList: ' 
-					+';@MatchHDPCustCount: ' + CONVERT(VARCHAR(10), @MatchHDPCustCount)
-					+';@TraceMatchIDCount: ' + CONVERT(VARCHAR(10), @TraceMatchIDCount)
-
-	INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-	VALUES (@TraceGroup, @SPName, @StepID, @StepStartTime, @StepEndTime, @StepDesc, @LogInfo);
-
-	---=======Trace Log Info: End STEP 3 =========================
 
 END;
 /*<info serverAlias="DBFS-bodb_FraudSensor" executers="bodbSPUNet" isFunction="0" isNested="0"></info>*/

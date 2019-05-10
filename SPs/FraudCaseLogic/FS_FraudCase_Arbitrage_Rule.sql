@@ -27,27 +27,11 @@ AS
 		- 20190503@Long.Luu:	Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
 		- 20190509@Casey.Huynh:	Trace Log Info [Redmine ID: 110672]
 		- 20190509@Casey.Huynh:	Fix Issue Performance when Update/Insert Scanned Match [Redmine ID: 110672]
+		- 20190509@Casey.Huynh: Remove Trace Log
 	Param's Explanation (filtered by):
 */
 BEGIN
 	SET NOCOUNT ON;	
-	---=======Trace Log Info: Start=========================
-	DECLARE @LogInfo			NVARCHAR(200)
-			, @TraceGroup		INT
-			, @StepStartTime	DATETIME
-			, @StepEndTime		DATETIME
-			, @SPName			VARCHAR(200) = 'FS_FraudCase_Arbitrage_Rule'
-			, @StepDesc			NVARCHAR(200)
-			, @StepID			INT
-			, @MatchCount		INT
-			, @MatchesHDPCount	INT
-			, @TraceMatchID		INT
-			, @RowCount			INT;
-
-	SET @TraceGroup = ISNULL((SELECT MAX(TraceGroup) FROM dbo.Trace_Log WITH(NOLOCK)),0) + 1;
-
-	---=======Trace Log Info: End=========================
-
 	--=========ARRANGE================================
 	DECLARE @CurrentFraudCaseId		TINYINT
 		,	@MaxStakeToBeChecked	MONEY;
@@ -287,15 +271,10 @@ BEGIN
 	DECLARE @idocMatch INT
 		,	@idocAssociation INT;
 
-	---=======Trace Log Info: Start STEP 1=========================
-	SET @StepStartTime = GETDATE()
-	SET @StepID = 1
-	SET @StepDesc = 'INSERT INTO #tmpMatches'
-	---=======Trace Log Info: End  =========================
-
 	--Create an internal representation of the XML document
 	EXEC sp_xml_preparedocument @idocMatch OUTPUT, @Matches;
-	
+	EXEC sp_xml_preparedocument @idocAssociation OUTPUT, @Associations;
+
 	-- Execute a SELECT statement that uses the OPENXML rowset provider
 	
 	INSERT INTO #tmpMatches (MatchId, CustId, BetType, Handicap, LiveHomeScore, LiveAwayScore)
@@ -314,32 +293,6 @@ BEGIN
 		,	LiveAwayScore INT '@LiveAwayScore'
 	) AS Data;
 
-	---=======Trace Log Info: Start=========================
-	SET @StepEndTime = GETDATE()
-
-	SET @MatchesHDPCount = (SELECT COUNT(1) FROM #tmpMatches WITH(NOLOCK))
-	SET @TraceMatchID = (SELECT TOP(1) MatchID FROM #tmpMatches WITH(NOLOCK))
-	SET @MatchCount = (SELECT COUNT(DISTINCT MatchID) FROM #tmpMatches WITH(NOLOCK))
-
-	SET @LogInfo = '@MatchID = ' + CONVERT(VARCHAR(10), @TraceMatchID)
-					+  '; @MatchCount = ' + CONVERT(VARCHAR(10), @MatchCount)
-					+  '; @MatchesHDPCount = ' + CONVERT(VARCHAR(10), @MatchesHDPCount)
-
-	INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-	VALUES (@TraceGroup, @SPName, @StepID, @StepStartTime, @StepEndTime, @StepDesc, @LogInfo)
-
-	---=======Trace Log Info: End STEP 1 =========================
-
-	---=======Trace Log Info: Start STEP 2=========================
-	SET @StepStartTime = GETDATE()
-	SET @StepID = 2
-	SET @StepDesc = 'INSERT INTO #tmpAssociation'
-	---=======Trace Log Info: End  =========================
-
-	EXEC sp_xml_preparedocument @idocAssociation OUTPUT, @Associations;
-
-
-
 	-- Execute a SELECT statement that uses the OPENXML rowset provider
 	INSERT INTO #tmpAssociation (CustId, GroupId)
 	SELECT	Data.CustId
@@ -349,26 +302,6 @@ BEGIN
 		,	GroupId INT '@GroupId'
 	) AS Data;
 	
-	
-	---=======Trace Log Info: Start=========================
-	SET @RowCount = @@ROWCOUNT
-
-	SET @StepEndTime = GETDATE()
-
-	SET @LogInfo = '#tmpAssociation COUNT = ' + CONVERT(VARCHAR(10), @RowCount)
-	INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-	VALUES (@TraceGroup, @SPName, @StepID, @StepStartTime, @StepEndTime, @StepDesc, @LogInfo)
-
-	---=======Trace Log Info: End STEP 2 =========================
-
-
-	
-	---=======Trace Log Info: Start STEP 3=========================	
-	SET @StepID = 3
-	SET @StepDesc = 'INSERT INTO #tmpBettrans'
-	SET @StepStartTime = GETDATE()
-	---=======Trace Log Info: End  =========================
-
 	--================GET: BETTRANS TICKET
 	INSERT INTO #tmpBettrans(CustId, Username, CurrencyId, CurrencyName, MatchId, TransId, Bettype, LiveHomeScore, LiveAwayScore, Betteam, Handicap, Stake, EventDate, IP)
 	SELECT	DISTINCT [CustId]	= b.custid
@@ -390,24 +323,7 @@ BEGIN
 					AND (b.hdp1 - b.hdp2) = m.Handicap AND b.livehomescore = m.LiveHomeScore AND b.liveawayscore = m.LiveAwayScore
 	WHERE	b.matchId > 0
 			AND b.bettype IN (1, 3, 7, 8)
-			AND b.Currency NOT IN (20, 27, 28);	
-	
-	---=======Trace Log Info: Start=========================
-	SET @RowCount = @@ROWCOUNT
-	SET @StepEndTime = GETDATE()
-
-	SET @LogInfo = '#tmpBettrans COUNT = ' + CONVERT(VARCHAR(10), @RowCount)
-	INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-	VALUES (@TraceGroup, @SPName, @StepID, @StepStartTime, @StepEndTime, @StepDesc, @LogInfo)
-
-	---=======Trace Log Info: End STEP 3 =========================
-
-
-	---=======Trace Log Info: Start STEP 4=========================	
-	SET @StepID = 4
-	SET @StepDesc = 'INSERT INTO #tmpBettransAssociation'
-	SET @StepStartTime = GETDATE()
-	---=======Trace Log Info: End  =========================
+			AND b.Currency NOT IN (20, 27, 28);
 
 	---===========GET: ASSOCIATION TICKETS
 	INSERT INTO #tmpBettransAssociation(CustId, Username, CurrencyId, CurrencyName, MatchId, TransId, Bettype, LiveHomeScore, LiveAwayScore, Betteam, Handicap, Stake, EventDate, Ip, GraphDBGroupID, GroupId, IsIPFraud)
@@ -431,18 +347,6 @@ BEGIN
 	FROM	#tmpBettrans AS b WITH(NOLOCK)
 		INNER JOIN #tmpAssociation AS a WITH(NOLOCK) ON b.CustId = a.CustId;
 	
-	SET @RowCount = @@ROWCOUNT
-	---=======Trace Log Info: Start=========================
-	SET @StepEndTime = GETDATE()
-
-	SET @LogInfo = '#tmpBettransAssociation COUNT = ' + CONVERT(VARCHAR(10), @RowCount)
-
-	INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-	VALUES (@TraceGroup, @SPName, @StepID, @StepStartTime, @StepEndTime, @StepDesc, @LogInfo)
-
-	---=======Trace Log Info: End STEP 4 =========================
-
-
 	---- Merge Group By IP
 	-----Find IP has more than one groupId
 	DECLARE @Matchid INT;
@@ -451,20 +355,8 @@ BEGIN
 	SELECT DISTINCT MatchId
 	FROM #tmpMatches WITH(NOLOCK);
 	
-	
-	INSERT INTO #tmpMatchListbk(MatchId)
-	SELECT MatchId
-	FROM #tmpMatchList WITH(NOLOCK);
-
-
 	SELECT @Matchid = (SELECT TOP(1) Matchid FROM #tmpMatchList WITH(NOLOCK));
 
-	---=======Trace Log Info: Start STEP 5=========================	
-	SET @StepID = 5
-	SET @StepDesc = 'INSERT INTO #tmpIPGroup'
-	SET @StepStartTime = GETDATE()
-
-	---=======Trace Log Info: End  =========================
 	WHILE (@Matchid IS NOT NULL)
 	BEGIN
 			
@@ -506,24 +398,6 @@ BEGIN
 		SELECT @Matchid = (SELECT TOP(1) Matchid FROM #tmpMatchList WITH(NOLOCK))
 	END;
 
-	---=======Trace Log Info: Start=========================
-	SET @StepEndTime = GETDATE()
-
-	SET @LogInfo = '#tmpIPGroup COUNT = ' + CONVERT(VARCHAR(10),(SELECT COUNT(1) FROM #tmpIPGroup WITH(NOLOCK)))
-
-	INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-	VALUES (@TraceGroup, @SPName, @StepID, @StepStartTime, @StepEndTime, @StepDesc, @LogInfo)
-
-	---=======Trace Log Info: End STEP 5 =========================
-
-
-		
-	---=======Trace Log Info: Start STEP 6=========================	
-	SET @StepID = 6
-	SET @StepDesc = 'INSERT INTO	#tmpMatchBettypeBetteamSumStake'
-	SET @StepStartTime = GETDATE()
-	---=======Trace Log Info: End  =========================
-
 	--=================================================================================================	
 	INSERT INTO	#tmpMatchBettypeBetteamSumStake(MatchId, LiveHomeScore, LiveAwayScore, Bettype, Handicap, GroupId, TotalStakeH, TotalStakeA)
 	SELECT DISTINCT
@@ -539,24 +413,6 @@ BEGIN
 	GROUP BY	ba.GroupId, ba.MatchId, ba.Bettype, ba.LiveHomeScore, ba.LiveAwayScore, ba.Handicap
 	HAVING		COUNT(DISTINCT ba.Betteam) > 1;
 	
-	---=======Trace Log Info: Start=========================
-	SET @RowCount = @@ROWCOUNT
-
-	SET @StepEndTime = GETDATE()
-
-	SET @LogInfo = '#tmpMatchBettypeBetteamSumStake COUNT = ' + CONVERT(VARCHAR(10), @RowCount)
-
-	INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-	VALUES (@TraceGroup, @SPName, @StepID, @StepStartTime, @StepEndTime, @StepDesc, @LogInfo)
-	---=======Trace Log Info: End STEP 6 =========================
-
-
-	---=======Trace Log Info: Start STEP 7=========================	
-	SET @StepID = 7
-	SET @StepDesc = 'INSERT INTO #tmpFraudTickets'
-	SET @StepStartTime = GETDATE()
-	---=======Trace Log Info: End  =========================
-
 	-- Get fraud tickets
 	INSERT INTO #tmpFraudTickets (CustId, Username, CurrencyId, CurrencyName, MatchId, GroupId, Bettype, EventDate, TransId, LiveHomeScore, LiveAwayScore, Handicap, IsIPFraud, IP, GraphDBGroupId )
 	SELECT DISTINCT 
@@ -582,41 +438,13 @@ BEGIN
 	ORDER BY	MatchId, LiveHomeScore, LiveAwayScore, Bettype, Handicap, transid
 	OPTION (MAXDOP 1);
 	
-	---=======Trace Log Info: Start=========================
-	SET @RowCount = @@ROWCOUNT
-	SET @StepEndTime = GETDATE()
-
-	SET @LogInfo = '#tmpFraudTickets COUNT = ' + CONVERT(VARCHAR(10), @RowCount)
-
-	INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-	VALUES (@TraceGroup, @SPName, @StepID, @StepStartTime, @StepEndTime, @StepDesc, @LogInfo)
-
-	---=======Trace Log Info: End STEP 7 =========================
-
-	---=======Trace Log Info: Start STEP 8=========================	
-	SET @StepID = 8
-	SET @StepDesc = 'INSERT INTO #tmpFraudIP'
-	SET @StepStartTime = GETDATE()
-
-	---=======Trace Log Info: End  =========================
 	--=======UPDATE: ISFraud by Match, totallivesoscore, bettype, Handicap
 	INSERT INTO #tmpFraudIP(MatchId, LiveHomeScore, LiveAwayScore, Bettype, Handicap, IP)
 	SELECT		t.matchid, LiveHomeScore, LiveAwayScore, Bettype, Handicap, IP 
 	FROM		#tmpFraudTickets t WITH(NOLOCK)
 	WHERE		t.GraphDBGroupId <> t.GroupId
 	GROUP BY	t.matchid, LiveHomeScore, LiveAwayScore, Bettype, Handicap, IP;
-
-	---=======Trace Log Info: Start=========================
-	SET @RowCount = @@ROWCOUNT
-	SET @StepEndTime = GETDATE()
-
-	SET @LogInfo = '#tmpFraudIP COUNT = ' + CONVERT(VARCHAR(10), @RowCount)
-
-	INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-	VALUES (@TraceGroup, @SPName, @StepID, @StepStartTime, @StepEndTime, @StepDesc, @LogInfo)
-
-	---=======Trace Log Info: End STEP 8 =========================
-
+	
 	UPDATE	ft
 	SET		ft.IsIPFraud = 1
 	FROM	#tmpFraudTickets ft WITH(ROWLOCK)
@@ -625,18 +453,12 @@ BEGIN
 
 	-- Check the results and store/return data
 	IF EXISTS (SELECT TOP(1) 1 FROM #tmpFraudTickets WITH (NOLOCK))
-	BEGIN
-		---=======Trace Log Info: Start STEP 9=========================	
-		SET @StepID = 9
-		SET @StepDesc = 'DELETE/INSERT INTO dbo.ArbitrageTicketDetails'
-		SET @StepStartTime = GETDATE()
-		---=======Trace Log Info: End  =========================
-		
+	BEGIN		
 		DELETE		si
 		FROM		dbo.ArbitrageTicketDetails si WITH(ROWLOCK)
 					INNER JOIN #tmpFraudTickets ft WITH(NOLOCK) ON si.MatchId = ft.MatchId AND si.LiveHomeScore = ft.LiveHomeScore 
 					 AND si.LiveAwayScore = ft.LiveAwayScore AND si.BetType = ft.BetType AND si.Handicap = ft.Handicap AND si.CustId = ft.CustId;
-		
+
 		-- Insert new records for table ArbitrageTicketDetails
 		INSERT INTO dbo.ArbitrageTicketDetails(CustId, MatchId, EventDate, GroupId, BetType, Handicap, LiveHomeScore, LiveAwayScore, TransIds, TicketCounter, IsIPFraud, GraphDBGroupId)
 		SELECT	[CustId]			= ft.CustId
@@ -658,24 +480,6 @@ BEGIN
 			,	[GraphDBGroupId]	= MIN(ft.GroupId)
 		FROM		#tmpFraudTickets ft WITH (NOLOCK)
 		GROUP BY	ft.CustId, ft.MatchId, ft.EventDate, ft.GroupId, ft.Bettype, ft.Handicap, ft.LiveHomeScore, ft.LiveAwayScore, ft.IsIPFraud;		
-
-		SET @RowCount = @@ROWCOUNT	
-		
-
-		---=======Trace Log Info: Start=========================
-		SET @StepEndTime = GETDATE()
-
-		SET @LogInfo = 'dbo.ArbitrageTicketDetails = ' + CONVERT(VARCHAR(10), @RowCount)
-
-		INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-		VALUES (@TraceGroup, @SPName, @StepID, @StepStartTime, @StepEndTime, @StepDesc, @LogInfo)
-		---=======Trace Log Info: End STEP 9 =========================
-
-		---=======Trace Log Info: Start STEP 10=========================	
-		SET @StepID = 10
-		SET @StepDesc = 'UPDATE/INSERT INTO dbo.ArbitrageSuspiciousInfo'
-		SET @StepStartTime = GETDATE()
-		---=======Trace Log Info: End  =========================
 
 		-- Update table SuspiciousInfo if existed
 		UPDATE si WITH (ROWLOCK, UPDLOCK)
@@ -720,24 +524,6 @@ BEGIN
 		WHERE si.MatchID IS NULL
 		GROUP BY ft.CustId, ft.MatchId, ft.EventDate;			
 		
-			---=======Trace Log Info: Start=========================
-			SET @RowCount = @@ROWCOUNT;
-
-			SET @StepEndTime = GETDATE();
-						
-			SET @LogInfo = 'dbo.ArbitrageSuspiciousInfo COUNT = ' + CONVERT(VARCHAR(10), @RowCount)
-
-			INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-			VALUES (@TraceGroup, @SPName, @StepID, @StepStartTime, @StepEndTime, @StepDesc, @LogInfo)
-
-			---=======Trace Log Info: End STEP10 =========================
-
-		---=======Trace Log Info: Start STEP 11=========================	
-		SET @StepID = 11
-		SET @StepDesc = 'UPDATE/INSERT INTO dbo.SuspiciousCustomer'
-		SET @StepStartTime = GETDATE();
-
-		---=======Trace Log Info: End  =========================
 		-- Update table SuspiciousCustomer if existed
 		WITH rs AS
 		(
@@ -752,64 +538,38 @@ BEGIN
 		
 		-- Insert new records for table SuspiciousCustomer
 		INSERT INTO dbo.SuspiciousCustomer(Custid, IsDelinquent, IsHedge, IsDirty, IsVerified, Username, CurrencyId, CurrencyName)
-		SELECT DISTINCT ft.CustId, 0, 0, 0, 0, ft.Username, ft.CurrencyId,ft.CurrencyName
-		FROM #tmpFraudTickets ft WITH (NOLOCK)
-				LEFT JOIN dbo.SuspiciousCustomer sc WITH (NOLOCK) ON ft.CustId = sc.CustId
+		SELECT		DISTINCT ft.CustId, 0, 0, 0, 0, ft.Username, ft.CurrencyId,ft.CurrencyName
+		FROM		#tmpFraudTickets ft WITH (NOLOCK)
+		LEFT JOIN	dbo.SuspiciousCustomer sc WITH (NOLOCK)
+					ON ft.CustId = sc.CustId
 		WHERE	sc.CustId IS NULL;
 
-		---=======Trace Log Info: Start=========================
-		SET @RowCount = @@ROWCOUNT	
-	
-		SET @StepEndTime = GETDATE()
-	
-		SET @LogInfo = 'INSERT dbo.SuspiciousCustomer COUNT = ' + CONVERT(VARCHAR(10), @RowCount)
-
-		INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-		VALUES (@TraceGroup, @SPName, @StepID, @StepStartTime, @StepEndTime, @StepDesc, @LogInfo)
-		---=======Trace Log Info: End STEP 11 =========================
-
 	END;
-		---=======Trace Log Info: Start STEP 12=========================	
-		SET @StepID = 12
-		SET @StepDesc = 'UPDATE/INSERT INTO dbo.ScannedMatch'
-		SET @StepStartTime = GETDATE()
 
-		---=======Trace Log Info: End  =========================
 		-- Update table ScannedMatch if existed
 		UPDATE	sm WITH (ROWLOCK, UPDLOCK)
 		SET		sm.ScannedDate				= GETDATE()
-			,	sm.SuspiciousTicketsCount	= ISNULL((SELECT SUM(t1.TicketCounter)
-												FROM dbo.ArbitrageTicketDetails t1 WITH (NOLOCK)
-												WHERE t1.MatchId = m.MatchId 
-												),0)
-		FROM		dbo.ScannedMatch sm
-		INNER JOIN	#tmpMatchListbk m WITH (NOLOCK) ON sm.MatchId = m.MatchId AND sm.FraudCaseId = @CurrentFraudCaseId;
+			,	sm.SuspiciousTicketsCount	= ISNULL((	SELECT	SUM(t1.TicketCounter)
+														FROM	dbo.ArbitrageTicketDetails t1 WITH (NOLOCK)
+														WHERE	t1.MatchId = m.MatchId),0)
+		FROM			dbo.ScannedMatch sm
+		INNER JOIN		#tmpMatchListbk m WITH (NOLOCK)
+						ON	sm.MatchId = m.MatchId 
+							AND sm.FraudCaseId = @CurrentFraudCaseId;
 
 		-- Insert new records for table ScannedMatch
-		INSERT INTO		dbo.ScannedMatch (Matchid, FraudCaseId, ScannedDate, SuspiciousTicketsCount)  
-		SELECT	DISTINCT [MatchId]			= m.matchid 
+		INSERT INTO dbo.ScannedMatch (Matchid, FraudCaseId, ScannedDate, SuspiciousTicketsCount)  
+		SELECT	[MatchId]			= m.matchid 
 			,	[FraudCaseId]				= @CurrentFraudCaseId
 			,	[ScannedDate]				= GETDATE() 
 			,	[SuspiciousTicketsCount]	= ISNULL((SELECT SUM(t1.TicketCounter)
 												FROM dbo.ArbitrageTicketDetails t1 WITH (NOLOCK)
-												WHERE t1.MatchId = m.MatchId 
-												GROUP BY t1.MatchId ),0)
-		FROM #tmpMatchListbk m WITH(NOLOCK)
-			LEFT JOIN dbo.ScannedMatch sm WITH (NOLOCK)ON m.matchid = sm.matchid AND sm.FraudCaseId = @CurrentFraudCaseId
-		WHERE sm.Matchid IS NULL 
-			AND sm.FraudCaseId IS NULL;
-
-		---=======Trace Log Info: Start=========================
-		SET @RowCount = @@ROWCOUNT	
-	
-		SET @StepEndTime = GETDATE()
-	
-		SET @LogInfo = 'INSERT INTO dbo.ScannedMatch COUNT = ' + CONVERT(VARCHAR(10), @RowCount)
-
-		INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-		VALUES (@TraceGroup, @SPName, @StepID, @StepStartTime, @StepEndTime, @StepDesc, @LogInfo)
-
-		---=======Trace Log Info: End STEP 12 =========================
+												WHERE t1.MatchId = m.MatchId),0)
+		FROM		#tmpMatchListbk m WITH(NOLOCK)
+		LEFT JOIN	dbo.ScannedMatch sm WITH (NOLOCK)
+					ON m.matchid = sm.matchid AND sm.FraudCaseId = @CurrentFraudCaseId
+		WHERE		sm.Matchid IS NULL 
+					AND sm.FraudCaseId IS NULL;
 
 	--Remove the XML documents
 	EXEC sp_xml_removedocument @idocMatch;
@@ -817,11 +577,6 @@ BEGIN
 	
 	-------------------UPDATE SCANNING PRECONDITON--------------------------------------
 	---------------------------------------------------------------------------
-	---=======Trace Log Info: Start STEP 13=========================	
-		SET @StepID = 13
-		SET @StepDesc = 'INSERT INTO ArbitrageMatchScoreHDP'
-		SET @StepStartTime = GETDATE()
-	---=======Trace Log Info: End  =========================
 
 	INSERT INTO dbo.ArbitrageMatchScoreHDP (MatchId, LiveHomeScore, LiveAwayScore, BetType, Handicap, HasScanned, UpdatedDate)
 	SELECT		m.MatchID
@@ -841,25 +596,7 @@ BEGIN
 	WHERE		a.Matchid IS NULL
 	GROUP BY	m.MatchId,m.LiveHomeScore,m.LiveAwayScore, m.Bettype, m.Handicap;
 
-	---=======Trace Log Info: Start=========================
-	SET @RowCount = @@ROWCOUNT	
-	
-	SET @StepEndTime = GETDATE()
-	
-	SET @LogInfo = 'dbo.ArbitrageMatchScoreHDP COUNT = ' + CONVERT(VARCHAR(10), @RowCount)
-
-	INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-	VALUES (@TraceGroup, @SPName, @StepID, @StepStartTime, @StepEndTime, @StepDesc, @LogInfo)
-
-	---=======Trace Log Info: End STEP 13 =========================
-
 	--=====Update Matched Completed
-	---=======Trace Log Info: Start STEP 3=========================	
-		SET @StepID = 14
-		SET @StepDesc = 'UPDATE dbo.ArbitrageMatchScoreHDP'
-		SET @StepStartTime = GETDATE();
-		---=======Trace Log Info: End  =========================
-
 	WITH #tmpCompletedMatch AS
 	(
 		SELECT		DISTINCT ams.MatchID
@@ -874,26 +611,6 @@ BEGIN
 	INNER JOIN	#tmpCompletedMatch cm WITH(NOLOCK)
 				ON cm.MatchId = sh.MatchId
 	WHERE		sh.MatchId = cm.MatchID;
-
-	---=======Trace Log Info: Start=========================
-	SET @RowCount = @@ROWCOUNT	
-	
-	SET @StepEndTime = GETDATE()
-	
-	SET @LogInfo = 'UPDATE dbo.ArbitrageMatchScoreHDP COUNT = ' + CONVERT(VARCHAR(10), @RowCount)
-
-	INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-	VALUES (@TraceGroup, @SPName, @StepID, @StepStartTime, @StepEndTime, @StepDesc, @LogInfo)
-
-	---=======Trace Log Info: End STEP 14 =========================
-
-
-	---=======Trace Log Info: Start STEP 15=========================	
-		SET @StepID = 15
-		SET @StepDesc = 'UPDATE dbo.ArbitrageMatchScanning'
-		SET @StepStartTime = GETDATE();
-		---=======Trace Log Info: End  =========================
-
 
 	WITH #tmpCompletedMatch AS
 	(
@@ -910,19 +627,6 @@ BEGIN
 				ON ams.MatchId = cm.MatchId				
 				AND ams.IsMatchCompleted = 1;
 	
-
-	---=======Trace Log Info: Start=========================
-	SET @RowCount = @@ROWCOUNT	
-	
-	SET @StepEndTime = GETDATE()
-	
-	SET @LogInfo = 'dbo.ArbitrageMatchScanning COUNT = ' + CONVERT(VARCHAR(10), @RowCount)
-
-	INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-	VALUES (@TraceGroup, @SPName, @StepID, @StepStartTime, @StepEndTime, @StepDesc, @LogInfo)
-
-	---=======Trace Log Info: End STEP 15 =========================
-
 	--====Update for LiveScore has completed
 
 	--1. UPDATE SCANNING STATUS
@@ -937,19 +641,6 @@ BEGIN
 				ON ms.MatchId = sh.MatchId
 	WHERE		(sh.LiveHomeScore < ms.MaxHomeScore OR sh.LiveAwayScore < ms.MaxAwayScore)
 				AND sh.HasScanned = 0;
-
-	---=======Trace Log Info: Start=========================
-	SET @StepID = 16
-	SET @StepEndTime = GETDATE()
-
-	SET @LogInfo = ''
-
-	INSERT INTO Trace_Log(TraceGroup, SPName, StepId, StartTime, EndTime, StepDesc, LogInfo)
-	VALUES (@TraceGroup, @SPName, @StepID, @ScannedDate, @StepEndTime, @StepDesc, @LogInfo)
-
-	---=======Trace Log Info: End STEP 16 =========================
-	
-
 END;
 
 GO

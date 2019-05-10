@@ -26,6 +26,7 @@ AS
 		- 20190403@Long.Luu: Adding LiveHomeScore, LiveAwayScore for ArbitrageTicketDetails table [Redmine ID: 111069]
 		- 20190503@Long.Luu:	Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
 		- 20190509@Casey.Huynh:	Trace Log Info [Redmine ID: 110672]
+		- 20190509@Casey.Huynh:	Fix Issue Performance when Update/Insert Scanned Match [Redmine ID: 110672]
 	Param's Explanation (filtered by):
 */
 BEGIN
@@ -113,6 +114,14 @@ BEGIN
 			,	Handicap		ASC
 			,	IP				ASC
 		)
+	);
+
+	IF	OBJECT_ID('tempdb..#tmpMatchListbk') IS NOT NULL
+	BEGIN;
+		DROP TABLE #tmpMatchListbk;
+	END;
+	CREATE TABLE #tmpMatchListbk (
+		MatchId INT NOT NULL PRIMARY KEY CLUSTERED
 	);
 
 	IF	OBJECT_ID('tempdb..#tmpMatchList') IS NOT NULL
@@ -442,6 +451,12 @@ BEGIN
 	SELECT DISTINCT MatchId
 	FROM #tmpMatches WITH(NOLOCK);
 	
+	
+	INSERT INTO #tmpMatchListbk(MatchId)
+	SELECT MatchId
+	FROM #tmpMatchList WITH(NOLOCK);
+
+
 	SELECT @Matchid = (SELECT TOP(1) Matchid FROM #tmpMatchList WITH(NOLOCK));
 
 	---=======Trace Log Info: Start STEP 5=========================	
@@ -766,12 +781,12 @@ BEGIN
 			,	sm.SuspiciousTicketsCount	= ISNULL((SELECT SUM(t1.TicketCounter)
 												FROM dbo.ArbitrageTicketDetails t1 WITH (NOLOCK)
 												WHERE t1.MatchId = m.MatchId 
-												GROUP BY t1.MatchId ),0)
-		FROM dbo.ScannedMatch sm
-			INNER JOIN #tmpMatches m WITH (NOLOCK) ON sm.MatchId = m.MatchId AND sm.FraudCaseId = @CurrentFraudCaseId;
+												),0)
+		FROM		dbo.ScannedMatch sm
+		INNER JOIN	#tmpMatchListbk m WITH (NOLOCK) ON sm.MatchId = m.MatchId AND sm.FraudCaseId = @CurrentFraudCaseId;
 
 		-- Insert new records for table ScannedMatch
-		INSERT INTO dbo.ScannedMatch (Matchid, FraudCaseId, ScannedDate, SuspiciousTicketsCount)  
+		INSERT INTO		dbo.ScannedMatch (Matchid, FraudCaseId, ScannedDate, SuspiciousTicketsCount)  
 		SELECT	DISTINCT [MatchId]			= m.matchid 
 			,	[FraudCaseId]				= @CurrentFraudCaseId
 			,	[ScannedDate]				= GETDATE() 
@@ -779,7 +794,7 @@ BEGIN
 												FROM dbo.ArbitrageTicketDetails t1 WITH (NOLOCK)
 												WHERE t1.MatchId = m.MatchId 
 												GROUP BY t1.MatchId ),0)
-		FROM #tmpMatches m WITH(NOLOCK)
+		FROM #tmpMatchListbk m WITH(NOLOCK)
 			LEFT JOIN dbo.ScannedMatch sm WITH (NOLOCK)ON m.matchid = sm.matchid AND sm.FraudCaseId = @CurrentFraudCaseId
 		WHERE sm.Matchid IS NULL 
 			AND sm.FraudCaseId IS NULL;

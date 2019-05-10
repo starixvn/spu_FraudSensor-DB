@@ -12,7 +12,7 @@ AS
 
 	Revisions:
 		- 20190419@Casey.Huynh: Archive Data Arbitrage before BU DAY  [Redmine ID: 112211]
-
+		- 20190508@Casey.Huynh: Enhance Performance [Redmine ID: 112211]
 	Param's Explanation (filtered by):
 */
 BEGIN
@@ -23,7 +23,7 @@ BEGIN
 	DECLARE @EventDate DATETIME;
 
 	IF	OBJECT_ID('tempdb..#tmpBUMBData') IS NOT NULL
-	BEGIN;
+	BEGIN
 		DROP TABLE	#tmpBUMBData
 	END;
 
@@ -32,6 +32,15 @@ BEGIN
 		,	MBDay		DATETIME
 	);	
 
+	---------------------------------------------------
+	IF	OBJECT_ID('tempdb..#tmpMovingMatch') IS NOT NULL
+	BEGIN
+		DROP TABLE	#tmpMovingMatch;
+	END;
+
+	CREATE TABLE	#tmpMovingMatch (
+		MatchId		INT		PRIMARY KEY CLUSTERED
+	);
 
 	---=========GET: BU DAYs==========================
 	INSERT INTO #tmpBUMBData(BUDay, MBDay)
@@ -47,7 +56,7 @@ BEGIN
 								WHERE asi.EventDate < @BUDate);
 
 		--========== MOVE DATA ArbitrageSuspiciousInfo
-		WHILE EXISTS (SELECT 1 FROM dbo.ArbitrageSuspiciousInfo_bk WITH(ROWLOCK) WHERE EventDate = @EventDate)
+		WHILE EXISTS (SELECT 1 FROM dbo.ArbitrageSuspiciousInfo_bk WITH(NOLOCK) WHERE EventDate = @EventDate)
 		BEGIN
 				DELETE TOP(1000)
 				FROM dbo.ArbitrageSuspiciousInfo_bk WITH(ROWLOCK)
@@ -69,7 +78,7 @@ BEGIN
 		FROM		dbo.ArbitrageSuspiciousInfo AS asi WITH(NOLOCK)
 		WHERE		asi.EventDate = @EventDate;
 				
-		WHILE EXISTS (SELECT 1 FROM dbo.ArbitrageSuspiciousInfo WITH(ROWLOCK) WHERE EventDate = @EventDate)
+		WHILE EXISTS (SELECT 1 FROM dbo.ArbitrageSuspiciousInfo WITH(NOLOCK) WHERE EventDate = @EventDate)
 		BEGIN
 				DELETE TOP(1000)
 				FROM dbo.ArbitrageSuspiciousInfo WITH(ROWLOCK)
@@ -80,17 +89,26 @@ BEGIN
 
 	WHILE EXISTS (SELECT 1 FROM ArbitrageTicketDetails atd WITH(NOLOCK) WHERE EventDate < @BUDate)
 	BEGIN
-		SELECT @EventDate = ( SELECT TOP(1) @EventDate 
-								FROM ArbitrageTicketDetails atd WITH(NOLOCK) 
-								WHERE EventDate < @BUDate);
+		SELECT @EventDate = ( SELECT	TOP(1) EventDate 
+							FROM	dbo.ArbitrageTicketDetails atd WITH(NOLOCK) 
+							WHERE	EventDate < @BUDate);
 
 		--========== MOVE DATA ArbitrageTicketDetails
-		WHILE EXISTS (SELECT 1 FROM dbo.ArbitrageTicketDetails_bk WITH(ROWLOCK) WHERE EventDate = @EventDate)
+		WHILE EXISTS (SELECT 1 FROM dbo.ArbitrageTicketDetails_bk WITH(NOLOCK) WHERE EventDate = @EventDate)
 		BEGIN
-				DELETE TOP(1000)
-				FROM dbo.ArbitrageTicketDetails_bk WITH(ROWLOCK)
-				WHERE EventDate = @EventDate;
+				DELETE	TOP(1000)
+				FROM	dbo.ArbitrageTicketDetails_bk WITH(ROWLOCK)
+				WHERE	EventDate = @EventDate;
 		END;
+
+		TRUNCATE TABLE	#tmpMovingMatch;
+
+		INSERT INTO	#tmpMovingMatch (MatchId)
+		SELECT	DISTINCT
+				MatchId
+		FROM	dbo.ArbitrageTicketDetails WITH (NOLOCK)
+		WHERE	EventDate = @EventDate;
+
 
 		INSERT INTO	dbo.ArbitrageTicketDetails_bk(CustId, MatchId, GroupId, TransIds, BetType, Handicap, TicketCounter, IsIPFraud, GraphDBGroupId, LiveHomeScore, LiveAwayScore)
 		SELECT		atd.CustId
@@ -105,17 +123,18 @@ BEGIN
 					, atd.LiveHomeScore
 					, atd.LiveAwayScore
 		FROM		dbo.ArbitrageTicketDetails AS atd WITH(NOLOCK)
-		WHERE		atd.EventDate = @EventDate;
+		INNER JOIN	#tmpMovingMatch AS m WITH(NOLOCK)
+					ON	atd.MatchId = m.MatchId;
 
-		WHILE EXISTS (SELECT 1 FROM dbo.ArbitrageTicketDetails WITH(ROWLOCK) WHERE EventDate = @EventDate)
+		WHILE EXISTS (SELECT 1 FROM dbo.ArbitrageTicketDetails WITH(NOLOCK) WHERE EventDate = @EventDate)
 		BEGIN
 				DELETE TOP(1000)
-				FROM dbo.ArbitrageTicketDetails WITH(ROWLOCK)
-				WHERE EventDate = @EventDate;
+				FROM	dbo.ArbitrageTicketDetails WITH(ROWLOCK)
+				WHERE	EventDate = @EventDate;
 		END;
 
 	END;
 END;
 
 GO
-/*<info serverAlias="DBFS-bodb_FraudSensor" executers="bodbSPUNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBFS-bodb_FraudSensor" isFunction="0" isNested="0"></info>*/

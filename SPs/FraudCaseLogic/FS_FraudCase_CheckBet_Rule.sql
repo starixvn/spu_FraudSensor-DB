@@ -24,6 +24,7 @@ AS
 		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [110060]
 		- 20190325@Long.Luu: Fix issue with cash out tickets [Redmine ID: #107398]
 		- 20190506@John.Ngo: Check Bet case only need to check the Rejected status if changed [Redmine ID: #111067]
+		- 20190515@Long.Luu: Cashout tickets are not inserted into bets table [Redmine ID: #113400]
 		 
 	Param's Explanation (filtered by):
 */
@@ -307,14 +308,13 @@ BEGIN
 				SELECT b.refno, 
 					-1			AS bettype, 
 					1			AS isCashOut, 
-					bs.stake	AS bettrans_stake, 
+					b.stake		AS bettrans_stake, 
 					0			AS bets_stake, 
 					0			AS isOriginal,
-					CASE WHEN b.tpositiontaking <> bs.tpositiontaking THEN 0 ELSE 1 END AS isValidTP,
-					CASE WHEN b.odds <> bs.odds THEN 0 ELSE 1 END AS isValidOdds,
-					CASE WHEN (b.betteam <> bs.betteam) THEN 0 ELSE 1 END AS isValidBetteam
+					1			AS isValidTP,
+					1			AS isValidOdds,
+					1			AS isValidBetteam
 				FROM bodb02.dbo.bettrans b WITH(NOLOCK)
-					INNER JOIN bk.dbo.bets bs WITH(NOLOCK) ON b.transid = bs.transid
 				WHERE EXISTS (SELECT 1 FROM #tmpCheckBet c WITH(NOLOCK) WHERE b.custid = c.custid AND b.matchid = c.matchid AND b.refno = c.transid AND c.isVoid = 0)
 					AND b.bettype = 911
 					AND b.statusID NOT IN (102);

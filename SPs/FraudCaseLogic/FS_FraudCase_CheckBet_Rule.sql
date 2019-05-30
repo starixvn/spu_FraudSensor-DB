@@ -24,6 +24,7 @@ AS
 		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [110060]
 		- 20190325@Long.Luu: Fix issue with cash out tickets [Redmine ID: #107398]
 		- 20190506@John.Ngo: Check Bet case only need to check the Rejected status if changed [Redmine ID: #111067]
+		- 20190515@Long.Luu: Cashout tickets are not inserted into bets table [Redmine ID: #113400]
 		 
 	Param's Explanation (filtered by):
 */
@@ -307,14 +308,13 @@ BEGIN
 				SELECT b.refno, 
 					-1			AS bettype, 
 					1			AS isCashOut, 
-					bs.stake	AS bettrans_stake, 
+					b.stake		AS bettrans_stake, 
 					0			AS bets_stake, 
 					0			AS isOriginal,
-					CASE WHEN b.tpositiontaking <> bs.tpositiontaking THEN 0 ELSE 1 END AS isValidTP,
-					CASE WHEN b.odds <> bs.odds THEN 0 ELSE 1 END AS isValidOdds,
-					CASE WHEN (b.betteam <> bs.betteam) THEN 0 ELSE 1 END AS isValidBetteam
+					1			AS isValidTP,
+					1			AS isValidOdds,
+					1			AS isValidBetteam
 				FROM bodb02.dbo.bettrans b WITH(NOLOCK)
-					INNER JOIN bk.dbo.bets bs WITH(NOLOCK) ON b.transid = bs.transid
 				WHERE EXISTS (SELECT 1 FROM #tmpCheckBet c WITH(NOLOCK) WHERE b.custid = c.custid AND b.matchid = c.matchid AND b.refno = c.transid AND c.isVoid = 0)
 					AND b.bettype = 911
 					AND b.statusID NOT IN (102);
@@ -323,36 +323,19 @@ BEGIN
 			-- Cash Out tickets are invalid: get stake from bettype 911 which is maked invalid when original ticket is invalid
 			IF EXISTS (SELECT TOP(1) 1 FROM #tmpCheckBet WITH(NOLOCK) WHERE isVoid = 1)
 			BEGIN
-				;WITH betcheck AS (
-					SELECT zb.transid, 
-						zb.betcheck, 
-						zb.custid, 
-						zb.matchid
-					FROM bodb02.dbo.zzzbettrans zb WITH(NOLOCK)
-					WHERE EXISTS (SELECT 1 FROM #tmpCheckBet c WITH(NOLOCK) WHERE zb.custid = c.custid AND zb.matchid = c.matchid AND zb.transid = c.transid AND c.isVoid = 1)
-					UNION SELECT NULL, NULL, NULL, NULL
-				)
-				, transid AS (
-					SELECT transid
-					FROM bodb02.dbo.zzzbettrans zb WITH(NOLOCK)
-					WHERE EXISTS (SELECT 1 FROM betcheck b WITH(NOLOCK) WHERE zb.custid = b.custid AND zb.matchid = b.matchid AND zb.refno = b.transid AND zb.betcheck = b.betcheck)
-						AND zb.bettype = 911
-					UNION SELECT NULL
-				)
-
 				INSERT INTO #tmpCheckBet (transid, bettype, isCashOut, bettrans_stake, bets_stake, isOriginal, isValidTP, isValidOdds, isValidBetteam)
 				SELECT b.refno, 
-					-1			AS bettype,
+					-1			AS bettype, 
 					1			AS isCashOut, 
-					bs.stake	AS bettrans_stake, 
+					b.stake		AS bettrans_stake, 
 					0			AS bets_stake, 
 					0			AS isOriginal,
-					CASE WHEN b.tpositiontaking <> bs.tpositiontaking THEN 0 ELSE 1 END AS isValidTP,
-					CASE WHEN b.odds <> bs.odds THEN 0 ELSE 1 END AS isValidOdds,
-					CASE WHEN (b.betteam <> bs.betteam) THEN 0 ELSE 1 END AS isValidBetteam
+					1			AS isValidTP,
+					1			AS isValidOdds,
+					1			AS isValidBetteam
 				FROM bodb02.dbo.bettrans b WITH(NOLOCK)
-					INNER JOIN bk.dbo.bets bs WITH(NOLOCK) ON b.transid = bs.transid
-				WHERE EXISTS (SELECT 1 FROM transid t WITH(NOLOCK) WHERE b.transid = t.transid);
+				WHERE EXISTS (SELECT 1 FROM #tmpCheckBet c WITH(NOLOCK) WHERE b.custid = c.custid AND b.matchid = c.matchid AND b.refno = c.transid AND c.isVoid = 1)
+					AND b.bettype = 911;
 			END;
 	
 			-- Remove all Cash Out tickets from table total
@@ -364,7 +347,7 @@ BEGIN
 			INSERT INTO #tmpChangedTickets (transid, bettype, original_stake)
 			SELECT cb.transid, 
 				MAX(cb.bettype) AS bettype, 
-				SUM(CASE WHEN cb.isOriginal = 1 THEN cb.bets_stake ELSE -cb.bettrans_stake END)  AS original_stake
+				SUM(cb.bets_stake)  AS original_stake
 			FROM #tmpCheckBet cb WITH(NOLOCK)
 			WHERE cb.transid NOT IN (SELECT ct.TransId FROM dbo.[ChangedTicket] ct WITH(NOLOCK))
 			GROUP BY cb.transid

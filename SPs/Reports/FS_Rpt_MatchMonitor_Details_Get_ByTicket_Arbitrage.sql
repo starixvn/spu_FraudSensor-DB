@@ -4,7 +4,7 @@ ALTER PROCEDURE [dbo].[FS_Rpt_MatchMonitor_Details_Get_ByTicket_Arbitrage]
 	,	@IsShowSpecialCurrencies	BIT = 0
 
 	,	@LiveStatus					SMALLINT = -1 -- all statuses
-	,	@CurrencyIds				VARCHAR(200) = '-1' -- all currencies, separate by comma
+	,	@CurrencyIds				VARCHAR(500) = '-1' -- all currencies, separate by comma
 	,	@TransDateFrom				DATETIME = NULL
 	,	@TransDateTo				DATETIME = NULL
 	,	@Bettype					SMALLINT = -1 -- all scoreHDP

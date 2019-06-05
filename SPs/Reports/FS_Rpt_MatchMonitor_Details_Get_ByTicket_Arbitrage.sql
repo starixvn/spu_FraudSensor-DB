@@ -4,7 +4,7 @@ ALTER PROCEDURE [dbo].[FS_Rpt_MatchMonitor_Details_Get_ByTicket_Arbitrage]
 	,	@IsShowSpecialCurrencies	BIT = 0
 
 	,	@LiveStatus					SMALLINT = -1 -- all statuses
-	,	@CurrencyId					SMALLINT = -1 -- all currencies
+	,	@CurrencyIds				VARCHAR(500) = '-1' -- all currencies, separate by comma
 	,	@TransDateFrom				DATETIME = NULL
 	,	@TransDateTo				DATETIME = NULL
 	,	@Bettype					SMALLINT = -1 -- all scoreHDP
@@ -23,6 +23,7 @@ AS
 		- 20181114@Long.Luu: Adding View Permission on Special Currencies [Redmine ID: #104707]
 		- 20190219@John.Ngo: Update logic Special Currencies and seperate Arbitrage [Redmine ID: #99753]
 		- 20190403@Long.Luu: Support more filters for Arbitrage fraud case details [Redmine ID: 111069]
+		- 20190530@Long.Luu: Support filter by Currencies & Sites [Redmine ID: 114153]
 
 	Param's Explanation:
 */
@@ -89,6 +90,19 @@ BEGIN
 			TransDate		ASC
 	);
 
+	IF OBJECT_ID('tempdb..#tmpCurrencyList') IS NOT NULL
+	BEGIN
+		DROP TABLE	#tmpCurrencyList;
+	END;
+	
+	CREATE TABLE #tmpCurrencyList (
+			CurrencyId		INT PRIMARY KEY
+	 );
+
+	 INSERT INTO #tmpCurrencyList(CurrencyId)
+	 SELECT VAL
+	 FROM dbo.SPU_StrSplit(@CurrencyIds, ',');
+
 	--===	2 GET: Balance Up Day and Move Bet Day
 	INSERT INTO #tmpBUMB(BUDay,MBDay)
 	EXECUTE bodb02.dbo.Age_SelBalanceUpDay;
@@ -108,7 +122,7 @@ BEGIN
 	WHERE	si.MatchId = @MatchId
 		AND (@Bettype = -1 OR @Handicap = -1 OR @LiveHomeScore = -1 OR @LiveAwayScore = -1 
 			OR (si.BetType = @Bettype AND si.Handicap = @Handicap AND si.LiveHomeScore = @LiveHomeScore AND si.LiveAwayScore = @LiveAwayScore)) -- ScoreHDP
-		AND (@CurrencyId = -1 OR c.CurrencyId = @CurrencyId)
+		AND (@CurrencyIds = '-1' OR c.CurrencyId IN (SELECT CurrencyId FROM #tmpCurrencyList WITH(NOLOCK)))
 		AND (@IsShowSpecialCurrencies = 1 OR c.CurrencyId NOT IN (SELECT CurrencyId FROM dbo.SpecialCurrency WITH(NOLOCK)));
 			
 	--===	4 GET: Homeid and AwayId

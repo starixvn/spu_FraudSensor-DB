@@ -18,16 +18,16 @@ AS
 		- 20190219@Long: Store more info (Currency & Username) for table SuspiciousCutomers [Redmine ID: 107858]
 		- 20190319@Casey.Huynh: Enhance Performance table #tmpFraudTickets [Redmine ID: 110060]
 		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [Redmine ID: 110060]		
-		- 20190503@Long.Luu:	Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
+		- 20190503@Long.Luu: Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
+		- 20190604@John.Ngo: Modify fraud case rules of Bet Neal the Goal [Redmine ID: 114438]
 
 	Param's Explanation (filtered by):
 */
 BEGIN
 	SET NOCOUNT ON;	
 
-	DECLARE @CurrentFraudCaseId TINYINT, @MinTicketsCount TINYINT, @ScannedDate DATETIME;
+	DECLARE @CurrentFraudCaseId TINYINT, @ScannedDate DATETIME;
 	SET @CurrentFraudCaseId = 11; -- Bets Near Goal
-	SET	@MinTicketsCount = 5; -- Pre-defined
 	SET	@ScannedDate = GETDATE();
 	
 	------- Arrange tables and initialize-------
@@ -103,7 +103,7 @@ BEGIN
 		AND ans.transdate BETWEEN DATEADD(ss, -30, si.LastRejectedTime) AND si.LastRejectedTime
 		AND ans.bettype IN (1, 3, 5, 7, 8, 15)
 		AND ans.currency NOT IN (20, 27, 28)
-		AND ans.statusID = 112 -- WON tickets
+		AND ans.statusID IN (101,102,112) -- Reject, Void, WON tickets
 	GROUP BY ans.custid
 		,	ans.Username
 		,	ans.currency
@@ -114,14 +114,6 @@ BEGIN
 		,	ans.livehomescore
 		,	ans.transid
 	OPTION (MAXDOP 1);
-
-	DELETE t 
-	FROM #tmpFraudTickets t
-		INNER JOIN (SELECT t.MatchId, t.CustId, t.LiveHomeScore, t.LiveAwayScore
-					FROM #tmpFraudTickets t
-					GROUP BY t.MatchId, t.CustId, t.LiveHomeScore, t.LiveAwayScore
-					HAVING COUNT(t.TransId) < @MinTicketsCount) a ON t.MatchId = a.MatchId AND t.CustId = a.CustId
-						AND t.LiveHomeScore = a.LiveHomeScore AND t.LiveAwayScore = a.LiveAwayScore;
 		
 	-------INSERT SCANNED MATCH: TABLE "ScannedMatch" -------
 	INSERT INTO dbo.ScannedMatch (Matchid, FraudCaseId, ScannedDate, SuspiciousTicketsCount)  

@@ -1,3 +1,10 @@
+USE [bodb_FraudSensor]
+GO
+/****** Object:  StoredProcedure [dbo].[FS_FraudCase_Arbitrage_PreCondition]    Script Date: 5/9/2019 2:52:00 PM ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
 ALTER PROCEDURE [dbo].[FS_FraudCase_Arbitrage_PreCondition]
 AS
 /*
@@ -14,6 +21,8 @@ AS
 		- 20190408@Casey.Huynh: Update "Rowlock" to "Nolock" for table ArbitrageMatchScanning, Insert to ArbitrageMatchScoreHDP handicap=hdp1-hdp2 [111069]		
 		- 20190403@Long.Luu: Adding LiveHomeScore, LiveAwayScore for ArbitrageTicketDetails table [Redmine ID: 111069]
 		- 20190404@Casey.Huynh: Implement, not scan Match if it has no ticket in bettran tables [111454]
+		- 20190509@Casey.Huynh:	Trace Log Info [Redmine ID: 110672]
+		- 20190520@Casey.Huynh: Remove Trace Log
 
 	Param's Explanation (filtered by):  
 	
@@ -161,7 +170,6 @@ BEGIN
 				, Handicap
 				, CustId
 	FROM		#tmpCustomerList c WITH(NOLOCK);
-END;
 
-GO
-/*<info serverAlias="DBFS-bodb_FraudSensor" executers="bodbSPUNet" isFunction="0" isNested="0"></info>*/	
+END;
+/*<info serverAlias="DBFS-bodb_FraudSensor" executers="bodbSPUNet" isFunction="0" isNested="0"></info>*/

@@ -137,4 +137,3 @@ BEGIN
 END;
 
 GO
-/*<info serverAlias="DBFS-bodb_FraudSensor" isFunction="0" isNested="0"></info>*/

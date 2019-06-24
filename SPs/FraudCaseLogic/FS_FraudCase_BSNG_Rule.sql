@@ -19,6 +19,7 @@ AS
 		- 20190320@Casey.Huynh: Enhance Performance, define PRIMARY KEY in table [Redmine ID: 110060]
 		- 20190329@Casey.Huynh: Implement Completed Match when the score is rejected: Add code update table MatchScore completed Status to sp rule [Redmine ID: 111079]
 		- 20190503@Long.Luu:	Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
+		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead [Redmine ID: 115326]
 
 	Param's Explanation (filtered by):
 */
@@ -78,7 +79,6 @@ BEGIN
 			CustId				INT NOT NULL PRIMARY KEY CLUSTERED
 		,	Username			NVARCHAR(50)
 		,	CurrencyId			TINYINT
-		,	CurrencyName		NVARCHAR(50)
 	);
 
 	-------------------------------------
@@ -280,8 +280,8 @@ BEGIN
 		
 	
 		--===8. UPDATE: TABLE "SuspiciousCustomer" IsVerified=0 if has new Fraud Tickets)
-		INSERT INTO #tmpFraudTicketsCustInfo (CustId, Username, CurrencyId, CurrencyName)
-		SELECT DISTINCT ft.Custid, ft.Username, ft.CurrencyId, ft.CurrencyName
+		INSERT INTO #tmpFraudTicketsCustInfo (CustId, Username, CurrencyId)
+		SELECT DISTINCT ft.Custid, ft.Username, ft.CurrencyId
 		FROM #tmpFraudTickets ft WITH (NOLOCK);
 
 		UPDATE sc WITH (ROWLOCK, UPDLOCK)
@@ -290,8 +290,8 @@ BEGIN
 			INNER JOIN #tmpFraudTicketsCustInfo t ON sc.Custid = t.CustId;
 
 		--===9. INSERT: TABLE "SuspiciousCustomer" if NOT Exitsing Custid
-		INSERT INTO dbo.SuspiciousCustomer(Custid, Username, CurrencyId, CurrencyName, IsDelinquent, IsHedge, IsDirty, IsVerified)
-		SELECT ft.CustId, ft.Username, ft.CurrencyId, ft.CurrencyName, 0, 0, 0, 0
+		INSERT INTO dbo.SuspiciousCustomer(Custid, Username, CurrencyId, IsDelinquent, IsHedge, IsDirty, IsVerified)
+		SELECT ft.CustId, ft.Username, ft.CurrencyId, 0, 0, 0, 0
 		FROM #tmpFraudTicketsCustInfo ft WITH (NOLOCK)
 		WHERE ft.CustId NOT IN (SELECT sc.CustId 
 								FROM dbo.SuspiciousCustomer sc WITH (NOLOCK));

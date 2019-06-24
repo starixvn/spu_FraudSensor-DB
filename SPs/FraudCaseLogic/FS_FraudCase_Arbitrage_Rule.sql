@@ -27,7 +27,8 @@ AS
 		- 20190503@Long.Luu:	Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
 		- 20190509@Casey.Huynh:	Trace Log Info [Redmine ID: 110672]
 		- 20190509@Casey.Huynh:	Fix Issue Performance when Update/Insert Scanned Match [Redmine ID: 110672]
-		- 20190509@Casey.Huynh: Remove Trace Log
+		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead & Remove Trace Log [Redmine ID: 115326]
+
 	Param's Explanation (filtered by):
 */
 BEGIN
@@ -242,6 +243,17 @@ BEGIN
 		,	GroupId				ASC			
 	);
 
+	IF OBJECT_ID('tempdb..#tmpFraudTicketsCustInfo') IS NOT NULL
+	BEGIN
+		DROP TABLE	#tmpFraudTicketsCustInfo;
+	END
+	
+	CREATE TABLE #tmpFraudTicketsCustInfo(
+			CustId				INT NOT NULL PRIMARY KEY CLUSTERED
+		,	Username			NVARCHAR(50)
+		,	CurrencyId			TINYINT
+	);
+
 	IF OBJECT_ID('tempdb..#tmpMatchBettypeBetteamSumStake') IS NOT NULL
 	BEGIN
 		DROP TABLE	#tmpMatchBettypeBetteamSumStake;
@@ -354,6 +366,10 @@ BEGIN
 	INSERT INTO #tmpMatchList(MatchId)
 	SELECT DISTINCT MatchId
 	FROM #tmpMatches WITH(NOLOCK);
+
+	INSERT INTO #tmpMatchListbk(MatchId)
+	SELECT MatchId
+	FROM #tmpMatchList WITH(NOLOCK);
 	
 	SELECT @Matchid = (SELECT TOP(1) Matchid FROM #tmpMatchList WITH(NOLOCK));
 
@@ -524,24 +540,21 @@ BEGIN
 		WHERE si.MatchID IS NULL
 		GROUP BY ft.CustId, ft.MatchId, ft.EventDate;			
 		
-		-- Update table SuspiciousCustomer if existed
-		WITH rs AS
-		(
-			SELECT		CustId, Username
-			FROM		#tmpFraudTickets WITH(NOLOCK)
-			GROUP BY	custid, username 
-		)
-		UPDATE	sc WITH (ROWLOCK, UPDLOCK)
-		SET		sc.IsVerified = 0, sc.Username = rs.Username
-		FROM	dbo.SuspiciousCustomer AS sc
-				INNER JOIN rs ON sc.custid = rs.custid;
-		
-		-- Insert new records for table SuspiciousCustomer
-		INSERT INTO dbo.SuspiciousCustomer(Custid, IsDelinquent, IsHedge, IsDirty, IsVerified, Username, CurrencyId, CurrencyName)
-		SELECT		DISTINCT ft.CustId, 0, 0, 0, 0, ft.Username, ft.CurrencyId,ft.CurrencyName
-		FROM		#tmpFraudTickets ft WITH (NOLOCK)
-		LEFT JOIN	dbo.SuspiciousCustomer sc WITH (NOLOCK)
-					ON ft.CustId = sc.CustId
+		-- UPDATE: TABLE "SuspiciousCustomer" IsVerified=0 if has new Fraud Tickets
+		INSERT INTO #tmpFraudTicketsCustInfo (CustId, Username, CurrencyId)
+		SELECT DISTINCT ft.Custid, ft.Username, ft.CurrencyId
+		FROM #tmpFraudTickets ft WITH (NOLOCK);
+
+		UPDATE sc WITH (ROWLOCK, UPDLOCK)
+		SET sc.IsVerified = 0, sc.Username = t.Username
+		FROM dbo.SuspiciousCustomer sc 
+			INNER JOIN #tmpFraudTicketsCustInfo t ON sc.Custid = t.CustId;
+
+		-- INSERT: TABLE "SuspiciousCustomer" if NOT Exitsing Custid
+		INSERT INTO dbo.SuspiciousCustomer(Custid, Username, CurrencyId, IsDelinquent, IsHedge, IsDirty, IsVerified)
+		SELECT ft.CustId, ft.Username, ft.CurrencyId, 0, 0, 0, 0
+		FROM #tmpFraudTicketsCustInfo ft WITH (NOLOCK)
+			LEFT JOIN dbo.SuspiciousCustomer sc WITH (NOLOCK) ON ft.CustId = sc.CustId
 		WHERE	sc.CustId IS NULL;
 
 	END;

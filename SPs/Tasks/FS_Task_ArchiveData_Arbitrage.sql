@@ -13,6 +13,7 @@ AS
 	Revisions:
 		- 20190419@Casey.Huynh: Archive Data Arbitrage before BU DAY  [Redmine ID: 112211]
 		- 20190508@Casey.Huynh: Enhance Performance [Redmine ID: 112211]
+		- 20190624@John.Ngo:	Fix 'Missing EventDate value in ArbitrageTicketDetails_bk' [Redmine ID: 115326]
 	Param's Explanation (filtered by):
 */
 BEGIN
@@ -110,7 +111,7 @@ BEGIN
 		WHERE	EventDate = @EventDate;
 
 
-		INSERT INTO	dbo.ArbitrageTicketDetails_bk(CustId, MatchId, GroupId, TransIds, BetType, Handicap, TicketCounter, IsIPFraud, GraphDBGroupId, LiveHomeScore, LiveAwayScore)
+		INSERT INTO	dbo.ArbitrageTicketDetails_bk(CustId, MatchId, GroupId, TransIds, BetType, Handicap, TicketCounter, IsIPFraud, GraphDBGroupId, LiveHomeScore, LiveAwayScore, EventDate)
 		SELECT		atd.CustId
 					, atd.MatchId
 					, atd.GroupId
@@ -122,6 +123,7 @@ BEGIN
 					, atd.GraphDBGroupId
 					, atd.LiveHomeScore
 					, atd.LiveAwayScore
+					, atd.EventDate
 		FROM		dbo.ArbitrageTicketDetails AS atd WITH(NOLOCK)
 		INNER JOIN	#tmpMovingMatch AS m WITH(NOLOCK)
 					ON	atd.MatchId = m.MatchId;
@@ -137,3 +139,4 @@ BEGIN
 END;
 
 GO
+/*<info serverAlias="DBFS-bodb_FraudSensor" isFunction="0" isNested="0"></info>*/

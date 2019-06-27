@@ -1,6 +1,3 @@
-USE [bodb_FraudSensor]
-GO
-/****** Object:  StoredProcedure [dbo].[FS_FraudCase_Arbitrage_PreCondition]    Script Date: 5/9/2019 2:52:00 PM ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -22,7 +19,7 @@ AS
 		- 20190403@Long.Luu: Adding LiveHomeScore, LiveAwayScore for ArbitrageTicketDetails table [Redmine ID: 111069]
 		- 20190404@Casey.Huynh: Implement, not scan Match if it has no ticket in bettran tables [111454]
 		- 20190509@Casey.Huynh:	Trace Log Info [Redmine ID: 110672]
-		- 20190520@Casey.Huynh: Remove Trace Log
+		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead & Remove Trace Log [Redmine ID: 115326]
 
 	Param's Explanation (filtered by):  
 	
@@ -172,4 +169,6 @@ BEGIN
 	FROM		#tmpCustomerList c WITH(NOLOCK);
 
 END;
+
+GO
 /*<info serverAlias="DBFS-bodb_FraudSensor" executers="bodbSPUNet" isFunction="0" isNested="0"></info>*/

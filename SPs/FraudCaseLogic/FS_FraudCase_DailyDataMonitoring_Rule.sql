@@ -5,7 +5,8 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-ALTER PROCEDURE [dbo].[FS_FraudCase_DailyDataMonitoring_Rule] 
+ALTER PROCEDURE [dbo].[FS_FraudCase_DailyDataMonitoring_Rule]
+		@IsManual		BIT = 0
 AS
 /*
 	Created: 20180607@LONG
@@ -13,7 +14,8 @@ AS
 	DB: bodb_FraudSensor
 	Original:
 
-	Revisions:
+	Revisions:	
+		- 20190627@John.Ngo: Data Daily Monitor - Detect the changes within 7 days instead of 3 days [Redmine ID: 115780]
 
 	Param's Explanation (filtered by):
 */
@@ -29,7 +31,7 @@ BEGIN
 		,	@CurrentFraudCaseId		INT;
 
 	SELECT	@CaptureDate = GETDATE()
-		,	@Today = GETDATE()
+		,	@Today = @CaptureDate
 		,	@CurrentFraudCaseId = 4;
 			
 	IF	OBJECT_ID('tempdb..#tmpMatchesData') IS NOT NULL
@@ -92,8 +94,23 @@ BEGIN
 	CREATE CLUSTERED INDEX	#CIX_tmpMatchesNewData_MatchId ON #tmpMatchesNewData (
 		[MatchId]					ASC
 	);
-		
 
+	SELECT @NewCapturedDate = MAX(cd.CapturedDate)
+	FROM dbo.CapturedData AS cd WITH(NOLOCK);
+
+	IF	OBJECT_ID('tempdb..#tmpMatches') IS NOT NULL
+	BEGIN;
+		DROP TABLE #tmpMatches;
+	END;
+
+	CREATE TABLE	#tmpMatches (
+			MatchId				INT
+	);
+
+	CREATE CLUSTERED INDEX	#CIX_tmpMatchesIdx ON #tmpMatches (
+			MatchId				ASC
+	);
+		
 	-------- REMOVE TODAY's DATA IN CASE ACCIDENTIALLY RUN MORE THAN 1 TIME PER DAY --------
 	DELETE FROM dbo.ChangedMatch WITH(ROWLOCK)
 	WHERE CapturedDate >= @Today
@@ -112,58 +129,126 @@ BEGIN
 	WHERE MessageId = @StoredMessageId;
 	
 	-------- START --------
-	SELECT @NewCapturedDate = MAX(cd.CapturedDate)
-	FROM dbo.CapturedData AS cd WITH(NOLOCK);
+	IF @IsManual = 0
+	BEGIN
+		SELECT @NewCapturedDate = MAX(cd.CapturedDate)
+		FROM dbo.CapturedData AS cd WITH(NOLOCK);
 
-	SELECT @OldCapturedDate = MAX(cd.CapturedDate)
-	FROM dbo.CapturedData AS cd WITH(NOLOCK)
-	WHERE cd.CapturedDate <> @NewCapturedDate;
+		SELECT @OldCapturedDate = MAX(cd.CapturedDate)
+		FROM dbo.CapturedData AS cd WITH(NOLOCK)
+		WHERE cd.CapturedDate <> @NewCapturedDate;
 
-	INSERT INTO #tmpMatchesData(MatchId, TotalCompanyTO, TotalSuperTO, TotalMasterTO, TotalAgentTO, TotalTickets, TotalSettledTickets, TotalCancelledTickets, CapturedDate)
-	SELECT	[MatchId]					= cd.matchid
-		,	[TotalCompanyTO]			= cd.TotalCompanyTO
-		,	[TotalSuperTO]				= cd.TotalSuperTO
-		,	[TotalMasterTO]				= cd.TotalMasterTO
-		,	[TotalAgentTO]				= cd.TotalAgentTO
-		,	[TotalTickets]				= cd.TotalTickets
-		,	[TotalSettledTickets]		= cd.TotalSettledTickets
-		,	[TotalCancelledTickets]		= cd.TotalCancelledTickets
-		,	[CapturedDate]				= cd.CapturedDate
-	FROM dbo.CapturedData AS cd WITH(NOLOCK)
-	WHERE cd.CapturedDate = @OldCapturedDate OR cd.CapturedDate = @NewCapturedDate;
+		INSERT INTO #tmpMatchesData(MatchId, TotalCompanyTO, TotalSuperTO, TotalMasterTO, TotalAgentTO, TotalTickets, TotalSettledTickets, TotalCancelledTickets, CapturedDate)
+		SELECT	[MatchId]					= cd.matchid
+			,	[TotalCompanyTO]			= cd.TotalCompanyTO
+			,	[TotalSuperTO]				= cd.TotalSuperTO
+			,	[TotalMasterTO]				= cd.TotalMasterTO
+			,	[TotalAgentTO]				= cd.TotalAgentTO
+			,	[TotalTickets]				= cd.TotalTickets
+			,	[TotalSettledTickets]		= cd.TotalSettledTickets
+			,	[TotalCancelledTickets]		= cd.TotalCancelledTickets
+			,	[CapturedDate]				= cd.CapturedDate
+		FROM dbo.CapturedData AS cd WITH(NOLOCK)
+		WHERE cd.CapturedDate = @OldCapturedDate OR cd.CapturedDate = @NewCapturedDate;
 
-	DELETE FROM #tmpMatchesData WITH(ROWLOCK)
-	WHERE MatchId IN
-        (
-            SELECT MatchId
-            FROM #tmpMatchesData
-            GROUP BY MatchId
-            HAVING COUNT(1) < 2
-        );
+		DELETE FROM #tmpMatchesData WITH(ROWLOCK)
+		WHERE MatchId IN
+			(
+				SELECT MatchId
+				FROM #tmpMatchesData WITH(NOLOCK)
+				GROUP BY MatchId
+				HAVING COUNT(1) < 2
+			);
 
-	INSERT INTO #tmpMatchesOldData(MatchId, TotalCompanyTO, TotalSuperTO, TotalMasterTO, TotalAgentTO, TotalTickets, TotalSettledTickets, TotalCancelledTickets)
-	SELECT	[MatchId]					= cd.matchid
-		,	[TotalCompanyTO]			= cd.TotalCompanyTO
-		,	[TotalSuperTO]				= cd.TotalSuperTO
-		,	[TotalMasterTO]				= cd.TotalMasterTO
-		,	[TotalAgentTO]				= cd.TotalAgentTO
-		,	[TotalTickets]				= cd.TotalTickets
-		,	[TotalSettledTickets]		= cd.TotalSettledTickets
-		,	[TotalCancelledTickets]		= cd.TotalCancelledTickets
-	FROM #tmpMatchesData AS cd WITH(NOLOCK)
-	WHERE cd.CapturedDate = @OldCapturedDate;
+		INSERT INTO #tmpMatchesOldData(MatchId, TotalCompanyTO, TotalSuperTO, TotalMasterTO, TotalAgentTO, TotalTickets, TotalSettledTickets, TotalCancelledTickets)
+		SELECT	[MatchId]					= cd.matchid
+			,	[TotalCompanyTO]			= cd.TotalCompanyTO
+			,	[TotalSuperTO]				= cd.TotalSuperTO
+			,	[TotalMasterTO]				= cd.TotalMasterTO
+			,	[TotalAgentTO]				= cd.TotalAgentTO
+			,	[TotalTickets]				= cd.TotalTickets
+			,	[TotalSettledTickets]		= cd.TotalSettledTickets
+			,	[TotalCancelledTickets]		= cd.TotalCancelledTickets
+		FROM #tmpMatchesData AS cd WITH(NOLOCK)
+		WHERE cd.CapturedDate = @OldCapturedDate;
 
-	INSERT INTO #tmpMatchesNewData(MatchId, TotalCompanyTO, TotalSuperTO, TotalMasterTO, TotalAgentTO, TotalTickets, TotalSettledTickets, TotalCancelledTickets)
-	SELECT	[MatchId]					= cd.matchid
-		,	[TotalCompanyTO]			= cd.TotalCompanyTO
-		,	[TotalSuperTO]				= cd.TotalSuperTO
-		,	[TotalMasterTO]				= cd.TotalMasterTO
-		,	[TotalAgentTO]				= cd.TotalAgentTO
-		,	[TotalTickets]				= cd.TotalTickets
-		,	[TotalSettledTickets]		= cd.TotalSettledTickets
-		,	[TotalCancelledTickets]		= cd.TotalCancelledTickets
-	FROM #tmpMatchesData AS cd WITH(NOLOCK)
-	WHERE cd.CapturedDate = @NewCapturedDate;
+		INSERT INTO #tmpMatchesNewData(MatchId, TotalCompanyTO, TotalSuperTO, TotalMasterTO, TotalAgentTO, TotalTickets, TotalSettledTickets, TotalCancelledTickets)
+		SELECT	[MatchId]					= cd.matchid
+			,	[TotalCompanyTO]			= cd.TotalCompanyTO
+			,	[TotalSuperTO]				= cd.TotalSuperTO
+			,	[TotalMasterTO]				= cd.TotalMasterTO
+			,	[TotalAgentTO]				= cd.TotalAgentTO
+			,	[TotalTickets]				= cd.TotalTickets
+			,	[TotalSettledTickets]		= cd.TotalSettledTickets
+			,	[TotalCancelledTickets]		= cd.TotalCancelledTickets
+		FROM #tmpMatchesData AS cd WITH(NOLOCK)
+		WHERE cd.CapturedDate = @NewCapturedDate;
+	
+	END;
+
+	IF @IsManual = 1
+	BEGIN
+		INSERT INTO #tmpMatches(MatchId)
+		SELECT	[MatchId] = cd.matchid
+		FROM dbo.CapturedData AS cd WITH(NOLOCK)
+		WHERE cd.CapturedDate = @NewCapturedDate;
+
+		INSERT INTO #tmpMatchesData(MatchId, TotalCompanyTO, TotalSuperTO, TotalMasterTO, TotalAgentTO, TotalTickets, TotalSettledTickets, TotalCancelledTickets, CapturedDate)
+		SELECT	[MatchId]					= cd.matchid
+			,	[TotalCompanyTO]			= cd.TotalCompanyTO
+			,	[TotalSuperTO]				= cd.TotalSuperTO
+			,	[TotalMasterTO]				= cd.TotalMasterTO
+			,	[TotalAgentTO]				= cd.TotalAgentTO
+			,	[TotalTickets]				= cd.TotalTickets
+			,	[TotalSettledTickets]		= cd.TotalSettledTickets
+			,	[TotalCancelledTickets]		= cd.TotalCancelledTickets
+			,	[CapturedDate]				= cd.CapturedDate
+		FROM dbo.CapturedData AS cd WITH(NOLOCK)
+		INNER JOIN #tmpMatches AS m WITH(NOLOCK) on cd.MatchId = m.MatchId
+		
+		DELETE FROM #tmpMatchesData WITH(ROWLOCK)
+		WHERE MatchId IN
+			(
+				SELECT MatchId
+				FROM #tmpMatchesData WITH(NOLOCK)
+				GROUP BY MatchId
+				HAVING COUNT(1) < 2
+			);
+
+		DELETE md FROM #tmpMatchesData AS md WITH(ROWLOCK)
+		WHERE md.CapturedDate IN (
+				SELECT CapturedDate
+				FROM #tmpMatchesData AS t1 WITH(NOLOCK)
+				WHERE t1.MatchId = md.MatchId AND t1.CapturedDate <> @NewCapturedDate
+					AND t1.CapturedDate <> (SELECT MAX(CapturedDate) FROM #tmpMatchesData AS t2 WITH(NOLOCK)
+											WHERE t1.MatchId = t2.MatchId AND t2.CapturedDate <> @NewCapturedDate
+											GROUP BY t2.MatchId));
+
+		INSERT INTO #tmpMatchesOldData(MatchId, TotalCompanyTO, TotalSuperTO, TotalMasterTO, TotalAgentTO, TotalTickets, TotalSettledTickets, TotalCancelledTickets)
+		SELECT	[MatchId]					= cd.matchid
+			,	[TotalCompanyTO]			= cd.TotalCompanyTO
+			,	[TotalSuperTO]				= cd.TotalSuperTO
+			,	[TotalMasterTO]				= cd.TotalMasterTO
+			,	[TotalAgentTO]				= cd.TotalAgentTO
+			,	[TotalTickets]				= cd.TotalTickets
+			,	[TotalSettledTickets]		= cd.TotalSettledTickets
+			,	[TotalCancelledTickets]		= cd.TotalCancelledTickets
+		FROM #tmpMatchesData AS cd WITH(NOLOCK)
+		WHERE cd.CapturedDate <> @NewCapturedDate
+
+		INSERT INTO #tmpMatchesNewData(MatchId, TotalCompanyTO, TotalSuperTO, TotalMasterTO, TotalAgentTO, TotalTickets, TotalSettledTickets, TotalCancelledTickets)
+		SELECT	[MatchId]					= cd.matchid
+			,	[TotalCompanyTO]			= cd.TotalCompanyTO
+			,	[TotalSuperTO]				= cd.TotalSuperTO
+			,	[TotalMasterTO]				= cd.TotalMasterTO
+			,	[TotalAgentTO]				= cd.TotalAgentTO
+			,	[TotalTickets]				= cd.TotalTickets
+			,	[TotalSettledTickets]		= cd.TotalSettledTickets
+			,	[TotalCancelledTickets]		= cd.TotalCancelledTickets
+		FROM #tmpMatchesData AS cd WITH(NOLOCK)
+		WHERE cd.CapturedDate = @NewCapturedDate;
+	
+	END;
 
 	INSERT INTO dbo.ChangedMatch(MatchId, OldTotalCompanyTO, NewTotalCompanyTO, OldTotalSuperTO, NewTotalSuperTO, OldTotalMasterTO, NewTotalMasterTO, OldTotalAgentTO, NewTotalAgentTO, OldTotalTickets, NewTotalTickets, OldTotalSettledTickets, NewTotalSettledTickets, OldTotalCancelledTickets, NewTotalCancelledTickets, CapturedDate)
 	SELECT	[MatchId]					= old.MatchId
@@ -210,11 +295,10 @@ BEGIN
 			,	[MessageId] = @NewlyMessageId
 		FROM dbo.FraudNotificationRecipient AS r WITH(NOLOCK)
 		WHERE r.FraudCaseId = @CurrentFraudCaseId;
+
 	END;
+
 END;
 
 GO
-GRANT EXECUTE ON [dbo].[FS_FraudCase_DailyDataMonitoring_Rule] TO [bodbSPUNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[FS_FraudCase_DailyDataMonitoring_Rule] TO [bodbSPUNet]
-GO
+/*<info serverAlias="DBFS-bodb_FraudSensor" executers="bodbSPUNet" isFunction="0" isNested="0"></info>*/

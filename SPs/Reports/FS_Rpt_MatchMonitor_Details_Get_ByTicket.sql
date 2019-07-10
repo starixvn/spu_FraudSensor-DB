@@ -17,9 +17,10 @@ AS
 	Original:
 
 	Revisions:
-		+ 20180523@CaseyHuynh: put alias for LiveHomeScore/LiveAwayScore column
-		- 20181114@Long: Adding View Permission on Special Currencies [Redmine ID: #104707]
-		- 20190219@John: Update logic Special Currencies and seperate Arbitrage [Redmine ID: #99753]
+		+ 20180523@CaseyHuynh:	Put alias for LiveHomeScore/LiveAwayScore column
+		- 20181114@Long:		Adding View Permission on Special Currencies [Redmine ID: #104707]
+		- 20190219@John:		Update logic Special Currencies and seperate Arbitrage [Redmine ID: #99753]
+		- 20190710@John.Ngo:	Update #temp table [Redmine ID: #116619]
 
 	Param's Explanation:
 */
@@ -38,7 +39,7 @@ BEGIN
 	 );
 	 
 	 --===	1.2 INITIAL: TEMP TABLES #tmpFraudTickets: GET Fraud Tickets
-	IF OBJECT_ID('tempdb..#tmpTransId') IS NOT NULL
+	IF OBJECT_ID('tempdb..#tmpFraudTickets') IS NOT NULL
 	BEGIN
 		DROP TABLE	#tmpFraudTickets;
 	END;

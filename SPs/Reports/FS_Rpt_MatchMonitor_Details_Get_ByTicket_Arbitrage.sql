@@ -133,7 +133,7 @@ BEGIN
 	
 	--===	3 GET: Fraud Tickets Insert to #tmpFraudTickets	
 	INSERT INTO #tmpSiteSusGroup(GroupId)
-	SELECT DISTINCT si.GroupId
+	SELECT DISTINCT si.GraphDBGroupId
 	FROM dbo.ArbitrageTicketDetails si WITH(NOLOCK)
 		--INNER JOIN bodb02.dbo.vw_Customer c WITH(NOLOCK) ON si.CustId = c.CustId
 		INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON si.CustId = c.CustId

@@ -11,7 +11,7 @@ ALTER PROCEDURE [dbo].[FS_Rpt_MatchMonitor_Details_Get_ByTicket_Arbitrage]
 	,	@Handicap					MONEY = -1 -- all scoreHDP
 	,	@LiveHomeScore				SMALLINT = -1 -- all scoreHDP
 	,	@LiveAwayScore				SMALLINT = -1 -- all scoreHDP
-	,	@Odds						SMALLMONEY = -1 -- all odds
+	,	@Odds						SMALLMONEY = 0 -- all odds
 	,	@Site						VARCHAR(10) = 'CN88' -- '' for all sites
 AS
 /*
@@ -60,14 +60,26 @@ BEGIN
 			TransID			ASC
 	);
 
-	IF OBJECT_ID('tempdb..#tmpSiteSusGroup') IS NOT NULL
+	IF OBJECT_ID('tempdb..#tmpSiteSusScoreHDPGroup') IS NOT NULL
 	BEGIN
-		DROP TABLE	#tmpSiteSusGroup;
+		DROP TABLE	#tmpSiteSusScoreHDPGroup;
 	END;
 	
-	CREATE TABLE #tmpSiteSusGroup (
-			GroupId		INT PRIMARY KEY
-	 );
+	CREATE TABLE #tmpSiteSusScoreHDPGroup (			
+			BetType			INT
+		,	Handicap		MONEY
+		,	LiveHomeScore	SMALLINT
+		,	LiveAwayScore	SMALLINT
+		,	GroupId			INT
+	);
+
+	CREATE CLUSTERED INDEX #CIX_tmpSiteSusScoreHDPGroup ON #tmpSiteSusScoreHDPGroup (
+			BetType			ASC
+		,	Handicap		ASC
+		,	LiveHomeScore	ASC
+		,	LiveAwayScore	ASC
+		,	GroupId			ASC
+	);
 
 	IF OBJECT_ID('tempdb..#tmpTicketResults') IS NOT NULL
 	BEGIN
@@ -132,8 +144,8 @@ BEGIN
 	WHERE @EventDate BETWEEN BUDay AND MBDay;
 	
 	--===	3 GET: Fraud Tickets Insert to #tmpFraudTickets	
-	INSERT INTO #tmpSiteSusGroup(GroupId)
-	SELECT DISTINCT si.GraphDBGroupId
+	INSERT INTO #tmpSiteSusScoreHDPGroup(BetType, Handicap, LiveHomeScore, LiveAwayScore, GroupId)
+	SELECT DISTINCT si.BetType, si.Handicap, si.LiveHomeScore, si.LiveAwayScore, si.GraphDBGroupId
 	FROM dbo.ArbitrageTicketDetails si WITH(NOLOCK)
 		--INNER JOIN bodb02.dbo.vw_Customer c WITH(NOLOCK) ON si.CustId = c.CustId
 		INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON si.CustId = c.CustId
@@ -144,7 +156,7 @@ BEGIN
 	SELECT si.GroupId, VAL, si.IsIPFraud
 	FROM dbo.ArbitrageTicketDetails si WITH(NOLOCK)
 		INNER JOIN dbo.SuspiciousCustomer c WITH(NOLOCK) ON si.CustId = c.custid
-		INNER JOIN #tmpSiteSusGroup g WITH(NOLOCK) ON si.GroupId = g.GroupId
+		INNER JOIN #tmpSiteSusScoreHDPGroup g WITH(NOLOCK) ON si.BetType = g.BetType AND si.Handicap = g.Handicap AND si.LiveHomeScore = g.LiveHomeScore AND si.LiveAwayScore = g.LiveAwayScore AND si.GroupId = g.GroupId
 		CROSS APPLY dbo.SPU_StrSplit(si.transids, ',')
 	WHERE	si.MatchId = @MatchId
 		AND (@Bettype = -1 OR @Handicap = -1 OR @LiveHomeScore = -1 OR @LiveAwayScore = -1 
@@ -240,7 +252,7 @@ BEGIN
 	FROM #tmpTicketResults t WITH(NOLOCK)
 	WHERE (@TransDateFrom IS NULL OR @TransDateTo IS NULL
 			OR (t.TransDate BETWEEN @TransDateFrom AND @TransDateTo))
-			AND (@Odds = -1 OR t.Odds >= @Odds);
+			AND (@Odds = 0 OR t.Odds >= @Odds);
 END;
 
 GO

@@ -9,8 +9,10 @@ ALTER PROCEDURE [dbo].[FS_Rpt_MatchMonitor_Details_Get_ByTicket_Arbitrage]
 	,	@TransDateTo				DATETIME = NULL
 	,	@Bettype					SMALLINT = -1 -- all scoreHDP
 	,	@Handicap					MONEY = -1 -- all scoreHDP
-	,	@LiveHomeScore				SMALLINT = -1 -- all scoreHDP;
-	,	@LiveAwayScore				SMALLINT = -1 -- all scoreHDP;
+	,	@LiveHomeScore				SMALLINT = -1 -- all scoreHDP
+	,	@LiveAwayScore				SMALLINT = -1 -- all scoreHDP
+	,	@Odds						SMALLMONEY = NULL -- all odds
+	,	@Site						VARCHAR(10) = 'CN88' -- '' for all sites
 AS
 /*
 	Created: 20180815@Long.Luu
@@ -24,12 +26,13 @@ AS
 		- 20190219@John.Ngo: Update logic Special Currencies and seperate Arbitrage [Redmine ID: #99753]
 		- 20190403@Long.Luu: Support more filters for Arbitrage fraud case details [Redmine ID: 111069]
 		- 20190530@Long.Luu: Support filter by Currencies & Sites [Redmine ID: 114153]
+		- 20190725@Long.Luu: CN88 Arbitrage [Redmine ID: 117498]
 
 	Param's Explanation:
 */
 BEGIN
 	SET NOCOUNT ON;
-	
+
 	--===	1.1 INITIAL TEMP TABLES #tmpBUMB: Include Balance Up and Move Bet Days	
 	IF OBJECT_ID('tempdb..#tmpBUMB') IS NOT NULL
 	BEGIN
@@ -48,13 +51,35 @@ BEGIN
 	END;
 	
 	CREATE TABLE #tmpFraudTickets (
-			GroupId		INT
-		,	TransId		BIGINT
-		,	IsIPFraud	BIT
+			GroupId			INT
+		,	GraphDBGroupId	INT
+		,	TransId			BIGINT
+		,	IsIPFraud		BIT
 	 );
 
 	CREATE CLUSTERED INDEX #CIX_tmpFraudTickets_TransID ON #tmpFraudTickets (
 			TransID			ASC
+	);
+
+	IF OBJECT_ID('tempdb..#tmpSiteSusScoreHDPGroup') IS NOT NULL
+	BEGIN
+		DROP TABLE	#tmpSiteSusScoreHDPGroup;
+	END;
+	
+	CREATE TABLE #tmpSiteSusScoreHDPGroup (			
+			BetType			INT
+		,	Handicap		MONEY
+		,	LiveHomeScore	SMALLINT
+		,	LiveAwayScore	SMALLINT
+		,	GroupId			INT
+	);
+
+	CREATE CLUSTERED INDEX #CIX_tmpSiteSusScoreHDPGroup ON #tmpSiteSusScoreHDPGroup (
+			BetType			ASC
+		,	Handicap		ASC
+		,	LiveHomeScore	ASC
+		,	LiveAwayScore	ASC
+		,	GroupId			ASC
 	);
 
 	IF OBJECT_ID('tempdb..#tmpTicketResults') IS NOT NULL
@@ -69,6 +94,7 @@ BEGIN
 		,	BettypeId		SMALLINT
 		,	TransId			BIGINT
 		,	GroupId			INT
+		,	GraphDBGroupId	INT
 		,	TransDate		DATETIME
 		,	BetId			BIGINT
 		,	BetTeam			NVARCHAR(10)
@@ -83,6 +109,7 @@ BEGIN
 		,	FullStake		MONEY
 		,	ComPTStake		MONEY
 		,	VirtualStake	MONEY
+		,	IPAddress		VARCHAR(15)
 		,	IsIPFraud		BIT
 	 );
 
@@ -99,9 +126,14 @@ BEGIN
 			CurrencyId		INT PRIMARY KEY
 	 );
 
-	 INSERT INTO #tmpCurrencyList(CurrencyId)
-	 SELECT VAL
-	 FROM dbo.SPU_StrSplit(@CurrencyIds, ',');
+	INSERT INTO #tmpCurrencyList(CurrencyId)
+	SELECT VAL
+	FROM dbo.SPU_StrSplit(@CurrencyIds, ',');
+	 
+	IF (@Site <> 'CN88')
+	BEGIN
+		SELECT @Site = '';
+	END;
 
 	--===	2 GET: Balance Up Day and Move Bet Day
 	INSERT INTO #tmpBUMB(BUDay,MBDay)
@@ -114,10 +146,19 @@ BEGIN
 	WHERE @EventDate BETWEEN BUDay AND MBDay;
 	
 	--===	3 GET: Fraud Tickets Insert to #tmpFraudTickets	
-	INSERT INTO #tmpFraudTickets(GroupId, TransId, IsIPFraud)
-	SELECT si.GroupId, VAL, si.IsIPFraud
+	INSERT INTO #tmpSiteSusScoreHDPGroup(BetType, Handicap, LiveHomeScore, LiveAwayScore, GroupId)
+	SELECT DISTINCT si.BetType, si.Handicap, si.LiveHomeScore, si.LiveAwayScore, si.GraphDBGroupId
+	FROM dbo.ArbitrageTicketDetails si WITH(NOLOCK)
+		--INNER JOIN bodb02.dbo.vw_Customer c WITH(NOLOCK) ON si.CustId = c.CustId
+		INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON si.CustId = c.CustId
+	WHERE si.MatchId = @MatchId
+		AND (@Site = '' OR c.Site = @Site);
+
+	INSERT INTO #tmpFraudTickets(GroupId, GraphDBGroupId, TransId, IsIPFraud)
+	SELECT si.GroupId, si.GraphDBGroupId, VAL, si.IsIPFraud
 	FROM dbo.ArbitrageTicketDetails si WITH(NOLOCK)
 		INNER JOIN dbo.SuspiciousCustomer c WITH(NOLOCK) ON si.CustId = c.custid
+		INNER JOIN #tmpSiteSusScoreHDPGroup g WITH(NOLOCK) ON si.BetType = g.BetType AND si.Handicap = g.Handicap AND si.LiveHomeScore = g.LiveHomeScore AND si.LiveAwayScore = g.LiveAwayScore AND si.GroupId = g.GroupId
 		CROSS APPLY dbo.SPU_StrSplit(si.transids, ',')
 	WHERE	si.MatchId = @MatchId
 		AND (@Bettype = -1 OR @Handicap = -1 OR @LiveHomeScore = -1 OR @LiveAwayScore = -1 
@@ -137,14 +178,15 @@ BEGIN
 			FROM bodb02.dbo.match m WITH(NOLOCK)
 			WHERE m.matchid = @MatchId;
 			
-			INSERT INTO #tmpTicketResults(CustId, Username,	DangerLevel, BettypeId,	TransId, GroupId, TransDate, BetId,	BetTeam, Handicap1
-				,	Handicap2, LiveHomeScore, LiveAwayScore, IsLive, Odds, OddsType, CurrencyName, FullStake, ComPTStake, VirtualStake, IsIPFraud)
+			INSERT INTO #tmpTicketResults(CustId, Username,	DangerLevel, BettypeId,	TransId, GroupId, GraphDBGroupId, TransDate, BetId,	BetTeam, Handicap1
+				,	Handicap2, LiveHomeScore, LiveAwayScore, IsLive, Odds, OddsType, CurrencyName, FullStake, ComPTStake, VirtualStake, IPAddress, IsIPFraud)
 			SELECT	[CustId]		= b.custid
 				,	[Username]		= b.Username
 				,	[DangerLevel]	= c.danger2 
 				,	[BettypeId]		= b.bettype 
 				,	[TransId]		= b.Transid
 				,	[GroupId]		= f.GroupId
+				,	[GraphDBGroupId]= f.GraphDBGroupId 
 				,	[TransDate]		= b.transdate
 				,	[BetId]			= b.betid
 				,	[BetTeam]		= b.betteam
@@ -159,6 +201,7 @@ BEGIN
 				,	[FullStake]		= b.stake * b.actualrate 
 				,	[ComPTStake]	= b.stake * (1 - b.tpositiontaking) * b.actualrate 
 				,	[VirtualStake]	= b.stake * (1 - b.tpositiontaking) * b.virtualrate
+				,	[IPAddress]		= b.ip
 				,	[IsIPFraud]		= f.IsIPFraud
 			FROM bodb02.dbo.bettrans b WITH(NOLOCK)
 				INNER JOIN #tmpFraudTickets f WITH(NOLOCK) ON b.transid = f.TransID
@@ -174,14 +217,15 @@ BEGIN
 			FROM bodb02.dbo.match14 m WITH(NOLOCK)
 			WHERE m.matchid = @MatchId;
 			
-			INSERT INTO #tmpTicketResults(CustId, Username,	DangerLevel, BettypeId,	TransId, GroupId, TransDate, BetId,	BetTeam, Handicap1
-				, Handicap2, LiveHomeScore, LiveAwayScore, IsLive, Odds, OddsType, CurrencyName, FullStake, ComPTStake, VirtualStake, IsIPFraud)
+			INSERT INTO #tmpTicketResults(CustId, Username,	DangerLevel, BettypeId,	TransId, GroupId, GraphDBGroupId, TransDate, BetId,	BetTeam, Handicap1
+				, Handicap2, LiveHomeScore, LiveAwayScore, IsLive, Odds, OddsType, CurrencyName, FullStake, ComPTStake, VirtualStake, IPAddress, IsIPFraud)
 			SELECT	[custid]		= b.custid
 				,	[Username]		= b.Username
 				,	[DangerLevel]	= c.danger2 
 				,	[BettypeId]		= b.bettype 
 				,	[TransId]		= b.Transid
 				,	[GroupId]		= f.GroupId
+				,	[GraphDBGroupId]= f.GraphDBGroupId
 				,	[TransDate]		= b.transdate
 				,	[BetId]			= b.betid
 				,	[BetTeam]		= b.betteam
@@ -196,6 +240,7 @@ BEGIN
 				,	[FullStake]		= b.stake * b.actualrate 
 				,	[ComPTStake]	= b.stake * (1 - b.tpositiontaking) * b.actualrate 
 				,	[VirtualStake]	= b.stake * (1 - b.tpositiontaking) * b.virtualrate
+				,	[IPAddress]		= b.ip
 				,	[IsIPFraud]		= f.IsIPFraud
 			FROM bodb02.dbo.bettrans14 b WITH(NOLOCK)
 				INNER JOIN #tmpFraudTickets f WITH(NOLOCK) ON b.transid = f.TransID
@@ -205,12 +250,13 @@ BEGIN
 		END;
 
 	--===	6 RETURN: Fraud Tickets Info				
-	SELECT	t.CustId, t.Username, t.DangerLevel, t.BettypeId, t.TransId, t.GroupId, t.TransDate, t.BetId
+	SELECT	t.CustId, t.Username, t.DangerLevel, t.BettypeId, t.TransId, t.GroupId, t.GraphDBGroupId, t.TransDate, t.BetId
 		,	t.BetTeam, t.Handicap1, t.Handicap2, t.LiveHomeScore, t.LiveAwayScore, t.IsLive, t.Odds
-		,	t.OddsType, t.CurrencyName, t.FullStake, t.ComPTStake, t.VirtualStake, t.IsIPFraud
+		,	t.OddsType, t.CurrencyName, t.FullStake, t.ComPTStake, t.VirtualStake, t.IPAddress AS [IP], t.IsIPFraud
 	FROM #tmpTicketResults t WITH(NOLOCK)
 	WHERE (@TransDateFrom IS NULL OR @TransDateTo IS NULL
-			OR (t.TransDate BETWEEN @TransDateFrom AND @TransDateTo));
+			OR (t.TransDate BETWEEN @TransDateFrom AND @TransDateTo))
+			AND (@Odds IS NULL OR t.Odds >= @Odds);
 END;
 
 GO

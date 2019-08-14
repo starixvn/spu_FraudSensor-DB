@@ -25,6 +25,7 @@ AS
 		- 20190325@Long.Luu: Fix issue with cash out tickets [Redmine ID: #107398]
 		- 20190506@John.Ngo: Check Bet case only need to check the Rejected status if changed [Redmine ID: #111067]
 		- 20190515@Long.Luu: Cashout tickets are not inserted into bets table [Redmine ID: #113400]
+		- 20190814@Long.Luu: Do not comparing Odds in case of ScoreBox tickets [Redmine ID: #118525]
 		 
 	Param's Explanation (filtered by):
 */
@@ -255,7 +256,7 @@ BEGIN
 				OR bt.livehomescore <> b.livehomescore
 				OR bt.liveawayscore <> b.liveawayscore
 				OR bt.tpositiontaking <> b.tpositiontaking
-				OR bt.odds <> b.odds
+				OR (bt.odds <> b.odds AND bt.bettype NOT IN (468,469))
 				OR bt.betteam <> b.betteam
 				OR ((bt.matchid <> b.matchid) AND s.EventType = 2)
 				OR bt.hdp1 <> b.hdp1 

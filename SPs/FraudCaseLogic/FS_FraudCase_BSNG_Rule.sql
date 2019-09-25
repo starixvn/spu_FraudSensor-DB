@@ -20,6 +20,7 @@ AS
 		- 20190329@Casey.Huynh: Implement Completed Match when the score is rejected: Add code update table MatchScore completed Status to sp rule [Redmine ID: 111079]
 		- 20190503@Long.Luu:	Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
 		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead [Redmine ID: 115326]
+		- 20190925@Long.Luu:	Change seconds to the goal [Redmine ID: 120881]
 
 	Param's Explanation (filtered by):
 */
@@ -64,8 +65,8 @@ BEGIN
 		,	LiveHomeScore		SMALLINT
 		,	LiveAwayScore		SMALLINT
 		,	PRIMARY KEY CLUSTERED (
-			CustId				ASC
-		,	MatchId				ASC
+			MatchId				ASC
+		,	CustId				ASC
 		,	TransId				ASC
 		)
 	);
@@ -185,7 +186,7 @@ BEGIN
 		) dds
 		WHERE  tch.matchid IN (SELECT MatchId FROM #tmpMatches WITH (NOLOCK))
 			AND ans.liveindicator = 1
-			AND ans.transdate BETWEEN DATEADD(ss, -90, si.LastRejectedTime) AND si.LastRejectedTime
+			AND ans.transdate BETWEEN DATEADD(ss, -180, si.LastRejectedTime) AND si.LastRejectedTime
 			AND ans.livehomescore = si.livehomescore
 			AND ans.liveawayscore = si.liveawayscore
 			AND ans.bettype IN (1, 3, 5, 7, 8, 15)

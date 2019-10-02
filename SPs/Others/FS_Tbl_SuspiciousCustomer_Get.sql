@@ -19,6 +19,7 @@ AS
 	Revisions:
 		- 20181114@Long: Adding View Permission on Special Currencies [Redmine ID: #104707]
 		- 20190219@John: Update logic Special Currencies and seperate Arbitrage [Redmine ID: #99753]
+		- 20191002@Long: Update logic [Redmine ID: #118117]
 
 	Param's Explanation:    
 */
@@ -26,11 +27,11 @@ BEGIN
 	SET NOCOUNT ON;
 	
 	SELECT sc.Custid, sc.IsDelinquent, sc.IsDirty, sc.IsHedge, sc.IsVerified
-	FROM dbo.SuspiciousCustomer sc WITH(NOLOCK)
-	WHERE sc.Custid				=	ISNULL(@Custid,sc.Custid)
-		  AND sc.[IsDelinquent]	=	ISNULL(@IsDelinquent,sc.IsDelinquent)
-		  AND sc.[IsHedge]		=	ISNULL(@IsHedge,sc.IsHedge)
-		  AND sc.[IsDirty]		=	ISNULL(@IsDirty,sc.IsDirty)
+	FROM dbo.SuspiciousCustomer AS sc WITH(NOLOCK)
+	WHERE (@Custid IS NULL OR sc.Custid = @Custid)
+		  AND (@IsDelinquent IS NULL OR sc.[IsDelinquent] = @IsDelinquent)
+		  AND (@IsHedge IS NULL OR sc.[IsHedge] = @IsHedge)
+		  AND (@IsDirty IS NULL OR sc.[IsDirty] = @IsDirty)
 		  AND (@IsShowSpecialCurrencies = 1 OR sc.CurrencyId NOT IN (SELECT CurrencyId FROM dbo.SpecialCurrency WITH(NOLOCK)));
 END;
 

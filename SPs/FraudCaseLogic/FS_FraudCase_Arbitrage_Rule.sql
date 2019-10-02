@@ -3,8 +3,8 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 ALTER PROCEDURE [dbo].[FS_FraudCase_Arbitrage_Rule] 
-		@Matches			VARCHAR(MAX) = NULL -- xml format
-	,	@Associations		VARCHAR(MAX) = NULL -- xml format
+		@Matches			XML
+	,	@Associations		XML
 AS
 /*
 	Created: 20180816@Long.Luu
@@ -28,6 +28,7 @@ AS
 		- 20190509@Casey.Huynh:	Trace Log Info [Redmine ID: 110672]
 		- 20190509@Casey.Huynh:	Fix Issue Performance when Update/Insert Scanned Match [Redmine ID: 110672]
 		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead & Remove Trace Log [Redmine ID: 115326]
+		- 20191003@Long.Luu:	Enhance the way to parse XML [Redmine ID: 118117]
 
 	Param's Explanation (filtered by):
 */
@@ -56,12 +57,12 @@ BEGIN
 		,	LiveHomeScore		SMALLINT
 		,	LiveAwayScore		SMALLINT
 		,	PRIMARY KEY CLUSTERED (
-				MatchId				ASC
-			,	CustId				ASC
-			,	BetType				ASC
-			,	Handicap			ASC	
-			,	LiveHomeScore		ASC
-			,	LiveAwayScore		ASC
+				MatchId			ASC
+			,	CustId			ASC
+			,	BetType			ASC
+			,	Handicap		ASC	
+			,	LiveHomeScore	ASC
+			,	LiveAwayScore	ASC
 			) 
 	);
 
@@ -71,8 +72,8 @@ BEGIN
 	END;
 
 	CREATE TABLE	#tmpAssociation (
-			[CustId]		INT NOT NULL PRIMARY KEY CLUSTERED
-		,	GroupID			INT NOT NULL
+			[CustId]			INT NOT NULL PRIMARY KEY CLUSTERED
+		,	GroupID				INT NOT NULL
 	);
 
 	CREATE NONCLUSTERED INDEX	#NIX_tmpAssociation_GroupID ON #tmpAssociation (
@@ -280,39 +281,22 @@ BEGIN
 	);	
 
 	-- INIT	
-	DECLARE @idocMatch INT
-		,	@idocAssociation INT;
-
-	--Create an internal representation of the XML document
-	EXEC sp_xml_preparedocument @idocMatch OUTPUT, @Matches;
-	EXEC sp_xml_preparedocument @idocAssociation OUTPUT, @Associations;
-
-	-- Execute a SELECT statement that uses the OPENXML rowset provider
-	
 	INSERT INTO #tmpMatches (MatchId, CustId, BetType, Handicap, LiveHomeScore, LiveAwayScore)
-	SELECT	Data.MatchId
-		,	Data.CustId
-		,	Data.BetType
-		,	Data.Handicap
-		,	Data.LiveHomeScore
-		,	Data.LiveAwayScore
-	FROM OPENXML(@idocMatch, '/Root/Match', 2) WITH (
-			MatchId INT '@MatchId'
-		,	BetType INT	'@BetType'
-		,	CustId INT '@CustId'
-		,	Handicap MONEY '@Handicap'
-		,	LiveHomeScore INT '@LiveHomeScore'
-		,	LiveAwayScore INT '@LiveAwayScore'
-	) AS Data;
-
+	SELECT	T.C.value('./@MatchId', 'INT') AS MatchId
+		,	T.C.value('./@CustId', 'INT') AS CustId
+		,	T.C.value('./@BetType', 'INT') AS BetType
+		,	T.C.value('./@LiveHomeScore', 'INT') AS LiveHomeScore
+		,	T.C.value('./@LiveAwayScore', 'INT') AS LiveAwayScore
+		,	T.C.value('./@Handicap', 'MONEY') AS Handicap
+	FROM @Matches.nodes('//Match') AS T(C)
+	OPTION (OPTIMIZE FOR (@Matches = NULL));
+	
 	-- Execute a SELECT statement that uses the OPENXML rowset provider
 	INSERT INTO #tmpAssociation (CustId, GroupId)
-	SELECT	Data.CustId
-		,	Data.GroupId
-	FROM OPENXML(@idocAssociation, '/Root/Association', 2) WITH (
-			CustId INT '@CustId'	
-		,	GroupId INT '@GroupId'
-	) AS Data;
+	SELECT	T.C.value('./@CustId', 'INT') AS CustId
+		,	T.C.value('./@GroupId', 'INT') AS GroupId
+	FROM @Associations.nodes('//Association') AS T(C)
+	OPTION (OPTIMIZE FOR (@Associations = NULL));
 	
 	--================GET: BETTRANS TICKET
 	INSERT INTO #tmpBettrans(CustId, Username, CurrencyId, CurrencyName, MatchId, TransId, Bettype, LiveHomeScore, LiveAwayScore, Betteam, Handicap, Stake, EventDate, IP)
@@ -583,14 +567,8 @@ BEGIN
 					ON m.matchid = sm.matchid AND sm.FraudCaseId = @CurrentFraudCaseId
 		WHERE		sm.Matchid IS NULL 
 					AND sm.FraudCaseId IS NULL;
-
-	--Remove the XML documents
-	EXEC sp_xml_removedocument @idocMatch;
-	EXEC sp_xml_removedocument @idocAssociation;
 	
 	-------------------UPDATE SCANNING PRECONDITON--------------------------------------
-	---------------------------------------------------------------------------
-
 	INSERT INTO dbo.ArbitrageMatchScoreHDP (MatchId, LiveHomeScore, LiveAwayScore, BetType, Handicap, HasScanned, UpdatedDate)
 	SELECT		m.MatchID
 				, m.LiveHomeScore
@@ -641,14 +619,13 @@ BEGIN
 				AND ams.IsMatchCompleted = 1;
 	
 	--====Update for LiveScore has completed
-
 	--1. UPDATE SCANNING STATUS
 	UPDATE		sh WITH(ROWLOCK)
 	SET			sh.HasScanned = 1, sh.UpdatedDate = @ScannedDate
 	FROM		dbo.ArbitrageMatchScoreHDP sh WITH(ROWLOCK)
 	INNER JOIN	(	SELECT	m.MatchId
-						, MAX(m.LiveHomeScore) AS MaxHomeScore
-						, MAX(m.LiveAwayScore) AS MaxAwayScore
+						,	MAX(m.LiveHomeScore) AS MaxHomeScore
+						,	MAX(m.LiveAwayScore) AS MaxAwayScore
 					FROM	#tmpMatches m WITH(NOLOCK)
 					GROUP BY MatchId) AS ms
 				ON ms.MatchId = sh.MatchId

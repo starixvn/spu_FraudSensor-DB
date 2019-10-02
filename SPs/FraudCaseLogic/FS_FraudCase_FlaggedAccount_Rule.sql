@@ -5,7 +5,7 @@ GO
 
 ALTER PROCEDURE [dbo].[FS_FraudCase_FlaggedAccount_Rule] 
 		@MatchIds				VARCHAR(MAX) = NULL
-	,	@FlaggedAccountsXML		VARCHAR(MAX)
+	,	@FlaggedAccountsXML		XML
 AS
 /*
 	Created: 20180308@LONG
@@ -24,6 +24,7 @@ AS
 		- 20190410@Casey.Huynh: Implement, update hasscanned = 1 for deleted Matches [Redmine ID: 111454]
 		- 20190503@Long.Luu:	Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
 		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead [Redmine ID: 115326]
+		- 20191003@Long.Luu:	Enhance the way to parse XML [Redmine ID: 118117]
 
 	Param's Explanation (filtered by):
 */
@@ -63,9 +64,9 @@ BEGIN
 		,	CurrencyName		NVARCHAR(50)		
 		,	EventDate			DATETIME
 		,	PRIMARY KEY CLUSTERED (
-				CustId				ASC
-			,	MatchId				ASC
-			,	TransId				ASC
+				CustId			ASC
+			,	MatchId			ASC
+			,	TransId			ASC
 		)		
 	);
 
@@ -90,13 +91,12 @@ BEGIN
 		MatchId INT	NOT	NULL PRIMARY KEY CLUSTERED
 	);
 
-	-- Insert flagged accounts	
-	EXEC sp_xml_preparedocument @idoc OUTPUT, @FlaggedAccountsXML;
-
 	INSERT INTO #tmpFlaggedAccounts(CustId)
-	SELECT Data.CustId
-	FROM	OPENXML (@idoc, '/Root/CustomerEvidence', 1)
-			WITH (CustId INT, EvidenceCode NVARCHAR(50), EvidenceName NVARCHAR(50)) AS Data;
+	SELECT	T.C.value('./@CustId', 'INT') AS CustId
+		--,	T.C.value('./@EvidenceCode', 'NVARCHAR(50)') AS EvidenceCode
+		--,	T.C.value('./@EvidenceName', 'NVARCHAR(50)') AS EvidenceName
+	FROM @FlaggedAccountsXML.nodes('//CustomerEvidence') AS T(C)
+	OPTION (OPTIMIZE FOR (@FlaggedAccountsXML = NULL));
 
 	INSERT INTO #tmpMatches(MatchId)
 	SELECT val FROM SPU_StrSplit(@MatchIds, ',');
@@ -185,7 +185,6 @@ BEGIN
 	WHERE		d.IsScanCompleted = 0
 				AND d.EventStatus = 'Completed';
 
-	EXEC sp_xml_removedocument @idoc;
 END;
 
 GO

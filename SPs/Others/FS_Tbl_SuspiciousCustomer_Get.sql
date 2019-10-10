@@ -25,15 +25,30 @@ AS
 */
 BEGIN
 	SET NOCOUNT ON;
+	DECLARE @__custId INT
+	SET @__custId = @Custid
+
+	IF @__custId IS NOT NULL
+	BEGIN
+		SELECT sc.Custid, sc.IsDelinquent, sc.IsDirty, sc.IsHedge, sc.IsVerified
+		FROM dbo.SuspiciousCustomer AS sc WITH(NOLOCK)
+		WHERE sc.Custid = @__custId
+			  AND (@IsDelinquent IS NULL OR sc.[IsDelinquent] = @IsDelinquent)
+			  AND (@IsHedge IS NULL OR sc.[IsHedge] = @IsHedge)
+			  AND (@IsDirty IS NULL OR sc.[IsDirty] = @IsDirty)
+			  AND (@IsShowSpecialCurrencies = 1 OR sc.CurrencyId NOT IN (SELECT CurrencyId FROM dbo.SpecialCurrency WITH(NOLOCK)))
+	END
+	ELSE
+	BEGIN
+		SELECT sc.Custid, sc.IsDelinquent, sc.IsDirty, sc.IsHedge, sc.IsVerified
+		FROM dbo.SuspiciousCustomer AS sc WITH(NOLOCK)
+		WHERE (@IsDelinquent IS NULL OR sc.[IsDelinquent] = @IsDelinquent)
+			  AND (@IsHedge IS NULL OR sc.[IsHedge] = @IsHedge)
+			  AND (@IsDirty IS NULL OR sc.[IsDirty] = @IsDirty)
+			  AND (@IsShowSpecialCurrencies = 1 OR sc.CurrencyId NOT IN (SELECT CurrencyId FROM dbo.SpecialCurrency WITH(NOLOCK)))
+	END
 	
-	SELECT sc.Custid, sc.IsDelinquent, sc.IsDirty, sc.IsHedge, sc.IsVerified
-	FROM dbo.SuspiciousCustomer AS sc WITH(NOLOCK)
-	WHERE (@Custid IS NULL OR sc.Custid = @Custid)
-		  AND (@IsDelinquent IS NULL OR sc.[IsDelinquent] = @IsDelinquent)
-		  AND (@IsHedge IS NULL OR sc.[IsHedge] = @IsHedge)
-		  AND (@IsDirty IS NULL OR sc.[IsDirty] = @IsDirty)
-		  AND (@IsShowSpecialCurrencies = 1 OR sc.CurrencyId NOT IN (SELECT CurrencyId FROM dbo.SpecialCurrency WITH(NOLOCK)));
-END;
+END
 
 GO
 /*<info serverAlias="DBFS-bodb_FraudSensor" executers="bodbSPUNet" isFunction="0" isNested="0"></info>*/

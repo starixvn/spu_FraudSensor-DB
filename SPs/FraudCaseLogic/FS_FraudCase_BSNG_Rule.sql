@@ -28,31 +28,10 @@ AS
 BEGIN
 	SET NOCOUNT ON;	
 
-	DECLARE @CurrentFraudCaseId TINYINT;
-	SET @CurrentFraudCaseId = 1; -- BSNG
-
-	DECLARE @__matchId INT
-	SET @__matchId = @MatchId
-	
-	DECLARE @ScannedDate DATETIME;
-	SET	@ScannedDate = GETDATE();
-	
-	-- Arrange tables and initialize
-	IF OBJECT_ID('tempdb..#tmpBettype') IS NOT NULL
-	BEGIN
-		DROP TABLE	#tmpBettype;
-	END
-	
-	CREATE TABLE #tmpBettype(
-		Bettype			INT PRIMARY KEY
-	);
+	DECLARE @CurrentFraudCaseId TINYINT, @__matchId INT, @ScannedDate DATETIME
+	SELECT @CurrentFraudCaseId = 1, @__matchId = @MatchId, @ScannedDate = GETDATE(); -- BSNG
 
 	-- Arrange tables and initialize
-	IF OBJECT_ID('tempdb..#tmpLastTickets') IS NOT NULL
-	BEGIN
-		DROP TABLE	#tmpLastTickets;
-	END
-
 	IF OBJECT_ID('tempdb..#tmpFraudTickets') IS NOT NULL
 	BEGIN
 		DROP TABLE	#tmpFraudTickets;
@@ -84,8 +63,6 @@ BEGIN
 		,	CurrencyId			TINYINT
 	);
 
-	-------------------------------------
-
 	IF OBJECT_ID('tempdb..#tmpMatches') IS NOT NULL
 	BEGIN
 		DROP TABLE	#tmpMatches;
@@ -99,41 +76,37 @@ BEGIN
 		,	CurrentScore		TINYINT
 	);
 
-	-------GET BETTYPE--------------------------------
-	INSERT INTO #tmpBettype (Bettype)
-	SELECT DISTINCT bettype
-	FROM	bodb02.dbo.SportBettypeMatrix WITH(NOLOCK)
-	WHERE	SportType = 1 ;
-	
 	--- Get Info of Match -- Only Scan for Score less than currentScore
 	INSERT INTO #tmpMatches(MatchId, EventDate, EventStatus, CurrentScore)
 	SELECT @__matchId, m.eventdate, m.eventstatus, (m.livehomescore + liveawayscore)
 	FROM bodb02.dbo.Match AS m WITH (NOLOCK)
 	WHERE m.MatchId = @__matchId;
-	
+
 	--- GET THE LAST REJECT TIME OF PREVIOUS SCORE		
 	INSERT INTO dbo.BSNGScanInfo (MatchId, EventDate, EventStatus, LiveHomeScore, LiveAwayScore, LastRejectedTicket, LastRejectedTime, HasScanned)
-	SELECT	ms.MatchId
-		,	ms.EventDate
-		,	ms.EventStatus
+	SELECT	@__matchId
+		,	m.EventDate
+		,	m.EventStatus
 		,	b.livehomescore
 		,	b.liveawayscore
 		,	MAX(transid) AS [TransId]
 		,	MAX(TransDate) AS [DeleteTime]	
 		,	0	
-	FROM	bodb02.dbo.bettrans AS b WITH(NOLOCK)
-		INNER JOIN #tmpBettype AS bt WITH(NOLOCK) ON b.bettype = bt.Bettype
-		INNER JOIN #tmpMatches AS ms WITH(NOLOCK) ON b.matchid = ms.MatchId
-		LEFT JOIN dbo.BSNGScanInfo AS si WITH(NOLOCK) ON si.MatchId = ms.MatchId
+	FROM #tmpMatches m
+		INNER JOIN bodb02.dbo.bettrans AS b WITH(NOLOCK) ON b.matchid = m.matchid
+		LEFT JOIN dbo.BSNGScanInfo AS si WITH(NOLOCK) ON si.MatchId = m.MatchId
 				AND si.livehomescore = b.livehomescore
 				AND si.LiveAwayScore = b.liveawayscore
-	WHERE b.liveindicator = 1
+	WHERE EXISTS (SELECT TOP 1 1
+					FROM bodb02.dbo.SportBettypeMatrix s WITH(NOLOCK)
+					WHERE SportType = 1 AND b.bettype = s.BetType
+		)
+		AND b.liveindicator = 1
 		AND b.statusID = 101
-		AND (b.livehomescore + b.liveawayscore) < ms.CurrentScore
+		AND (b.livehomescore + b.liveawayscore) < CurrentScore
 		AND si.MatchId IS NULL
-	GROUP BY ms.MatchId
-		,	ms.EventDate
-		,	ms.EventStatus
+	GROUP BY m.EventDate
+		,	m.EventStatus
 		,	b.livehomescore
 		,	b.liveawayscore;
 		

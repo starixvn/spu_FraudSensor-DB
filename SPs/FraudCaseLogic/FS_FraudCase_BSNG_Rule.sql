@@ -1,5 +1,5 @@
 ALTER PROCEDURE [dbo].[FS_FraudCase_BSNG_Rule] 
-	@MatchIds VARCHAR(MAX) = NULL
+	@MatchId		INT = NULL
 AS
 /*
 	Created: 20180306@Long
@@ -21,6 +21,7 @@ AS
 		- 20190503@Long.Luu:	Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
 		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead [Redmine ID: 115326]
 		- 20190925@Long.Luu:	Change seconds to the goal [Redmine ID: 120881]
+		- 20191010@Long.Luu:	Change input param [Redmine ID: 118117]
 
 	Param's Explanation (filtered by):
 */
@@ -40,7 +41,7 @@ BEGIN
 	END
 	
 	CREATE TABLE #tmpBettype(
-		Bettype	INT
+		Bettype			INT PRIMARY KEY
 	);
 
 	-- Arrange tables and initialize
@@ -91,60 +92,51 @@ BEGIN
 
 	CREATE TABLE #tmpMatches
 	(
-		MatchId			INT NOT NULL PRIMARY KEY CLUSTERED
-		, EventDate		DATETIME
-		, EventStatus	NVARCHAR(50)
-		, CurrentScore	TINYINT
+			MatchId				INT NOT NULL PRIMARY KEY CLUSTERED
+		,	EventDate			DATETIME
+		,	EventStatus			NVARCHAR(50)
+		,	CurrentScore		TINYINT
 	);
+
 	-------GET BETTYPE--------------------------------
 	INSERT INTO #tmpBettype (Bettype)
 	SELECT DISTINCT bettype
 	FROM	bodb02.dbo.SportBettypeMatrix WITH(NOLOCK)
 	WHERE	SportType = 1 ;
 	
-	-------GET MATCH-----
-	--------------------------------------------------
-	INSERT INTO #tmpMatches(MatchId)
-	SELECT val FROM dbo.SPU_StrSplit(@MatchIds, ',');	
+	--- Get Info of Match -- Only Scan for Score less than currentScore
+	INSERT INTO #tmpMatches(MatchId, EventDate, EventStatus, CurrentScore)
+	SELECT @MatchId, m.eventdate, m.eventstatus, (m.livehomescore + liveawayscore)
+	FROM bodb02.dbo.Match AS m WITH (NOLOCK)
+	WHERE m.MatchId = @MatchId;
 	
-	--- Get Current Score of Match -- Only Scan for Score less than currentScore
-	UPDATE		ms
-	SET			ms.CurrentScore = m.livehomescore + liveawayscore
-				, ms.EventDate = m.eventdate
-				, ms.EventStatus = m.eventstatus
-	FROM		#tmpMatches ms WITH(ROWLOCK)
-	INNER JOIN	bodb02.dbo.Match m WITH (NOLOCK) ON ms.MatchId = m.MatchId; 	
-	
-	--- GET THE LAST REJECT TIME OF PREVIOUS SCORE	
-	
+	--- GET THE LAST REJECT TIME OF PREVIOUS SCORE		
 	INSERT INTO dbo.BSNGScanInfo (MatchId, EventDate, EventStatus, LiveHomeScore, LiveAwayScore, LastRejectedTicket, LastRejectedTime, HasScanned)
-	SELECT ms.MatchId
-			, ms.EventDate
-			, ms.EventStatus
-			, b.livehomescore
-			, b.liveawayscore
-			, MAX(transid) AS [TransId]
-			, MAX(TransDate) AS [DeleteTime]	
-			, 0	
-	FROM		bodb02.dbo.bettrans b WITH(NOLOCK)
-				INNER JOIN #tmpBettype bt WITH(NOLOCK) ON b.bettype = bt.Bettype
-				INNER JOIN #tmpMatches ms WITH(NOLOCK) ON b.matchid = ms.MatchId
-	LEFT JOIN	dbo.BSNGScanInfo si WITH(NOLOCK) 
-				ON si.MatchId = ms.MatchId
+	SELECT	ms.MatchId
+		,	ms.EventDate
+		,	ms.EventStatus
+		,	b.livehomescore
+		,	b.liveawayscore
+		,	MAX(transid) AS [TransId]
+		,	MAX(TransDate) AS [DeleteTime]	
+		,	0	
+	FROM	bodb02.dbo.bettrans AS b WITH(NOLOCK)
+		INNER JOIN #tmpBettype AS bt WITH(NOLOCK) ON b.bettype = bt.Bettype
+		INNER JOIN #tmpMatches AS ms WITH(NOLOCK) ON b.matchid = ms.MatchId
+		LEFT JOIN dbo.BSNGScanInfo AS si WITH(NOLOCK) ON si.MatchId = ms.MatchId
 				AND si.livehomescore = b.livehomescore
 				AND si.LiveAwayScore = b.liveawayscore
-	WHERE		b.liveindicator = 1
-				AND b.statusID = 101
-				AND (b.livehomescore + b.liveawayscore) < ms.CurrentScore
-				AND si.MatchId IS NULL
-	GROUP BY	ms.MatchId
-				, ms.EventDate
-				, ms.EventStatus
-				, b.livehomescore
-				, b.liveawayscore;
-	
-	
-	--- GET FRAUD TICKET
+	WHERE b.liveindicator = 1
+		AND b.statusID = 101
+		AND (b.livehomescore + b.liveawayscore) < ms.CurrentScore
+		AND si.MatchId IS NULL
+	GROUP BY ms.MatchId
+		,	ms.EventDate
+		,	ms.EventStatus
+		,	b.livehomescore
+		,	b.liveawayscore;
+		
+	--- GET FRAUD TICKETS
 	INSERT INTO #tmpFraudTickets (CustId, Username, CurrencyId, CurrencyName, MatchId, EventDate, TransId, LiveHomeScore, LiveAwayScore)
 	SELECT  [CustId]			= bt.custid
 		,	[Username]			= bt.Username
@@ -174,17 +166,16 @@ BEGIN
 				) AS TotalStake
 			,	40 * 0.01 * COALESCE(dds.maxbet, 0) AS MaxBet
 		FROM bodb02.dbo.match AS tch WITH (NOLOCK)
-		INNER JOIN bodb02.dbo.bettrans AS ans WITH (NOLOCK) ON tch.matchid = ans.matchid
-		INNER JOIN dbo.BSNGScanInfo AS si WITH(NOLOCK) ON si.matchid = ans.matchid
-		INNER JOIN #tmpMatches AS tm WITH(NOLOCK) ON tm.MatchId = si.MatchId
-		CROSS APPLY (
-			SELECT TOP(1) l.Maxbet
-			FROM bodb_FraudSensor.dbo.OddsLog AS l WITH (NOLOCK)
-			WHERE l.oddsid = ans.oddsid
-				AND l.logdate < ans.transdate
-			ORDER BY l.logdate DESC
-		) dds
-		WHERE  tch.matchid IN (SELECT MatchId FROM #tmpMatches WITH (NOLOCK))
+			INNER JOIN bodb02.dbo.bettrans AS ans WITH (NOLOCK) ON tch.matchid = ans.matchid
+			INNER JOIN dbo.BSNGScanInfo AS si WITH(NOLOCK) ON si.matchid = ans.matchid
+			CROSS APPLY (
+				SELECT TOP(1) l.Maxbet
+				FROM bodb_FraudSensor.dbo.OddsLog AS l WITH (NOLOCK)
+				WHERE l.oddsid = ans.oddsid
+					AND l.logdate < ans.transdate
+				ORDER BY l.logdate DESC
+			) dds
+		WHERE  tch.matchid = @MatchId
 			AND ans.liveindicator = 1
 			AND ans.transdate BETWEEN DATEADD(ss, -180, si.LastRejectedTime) AND si.LastRejectedTime
 			AND ans.livehomescore = si.livehomescore
@@ -210,71 +201,63 @@ BEGIN
 	OPTION (MAXDOP 1);
 	
 	--===4. UPDATE: TABLE "ScannedMatch" (ScannedDate,SuspiciousTicketsCount)===========	
-	UPDATE sm WITH (ROWLOCK, UPDLOCK)
-	SET sm.ScannedDate = GETDATE()
-		,sm.SuspiciousTicketsCount = sm.SuspiciousTicketsCount + ISNULL((SELECT COUNT(1) 
-																			FROM #tmpFraudTickets t1 WITH (NOLOCK)
-																			WHERE t1.MatchId = mi.MatchId 
-																			GROUP BY t1.MatchId ),0)
-	FROM dbo.ScannedMatch sm
-			INNER JOIN #tmpMatches mi WITH (NOLOCK) ON sm.MatchId = mi.MatchId
-	WHERE sm.FraudCaseId = @CurrentFraudCaseId;
+	UPDATE	sm WITH (ROWLOCK, UPDLOCK)
+	SET		sm.ScannedDate = @ScannedDate
+		,	sm.SuspiciousTicketsCount = sm.SuspiciousTicketsCount + ISNULL((SELECT COUNT(1) FROM #tmpFraudTickets AS t1 WITH (NOLOCK)), 0)
+	FROM dbo.ScannedMatch AS sm
+	WHERE sm.MatchId = @MatchId
+		AND sm.FraudCaseId = @CurrentFraudCaseId;
 	
 	--===5. INSERT SCANNED MATCH: TABLE "ScannedMatch" (ScannedDate,SuspiciousTicketsCount)===========		
-	INSERT INTO dbo.ScannedMatch (Matchid, FraudCaseId, ScannedDate, SuspiciousTicketsCount)  
-	SELECT [MatchId] = mi.matchid 
-		, [FraudCaseId] = @CurrentFraudCaseId
-		, [ScannedDate] = GETDATE() 
-		, [SuspiciousTicketsCount] = (ISNULL((SELECT COUNT(1) 
-											FROM #tmpFraudTickets t1 WITH (NOLOCK)
-											WHERE t1.MatchId = mi.MatchId 
-											GROUP BY t1.MatchId ),0)) 
-	FROM #tmpMatches mi WITH (NOLOCK) 
-		LEFT JOIN dbo.ScannedMatch sm WITH (NOLOCK)ON mi.matchid = sm.matchid AND sm.FraudCaseId = @CurrentFraudCaseId
-	WHERE sm.Matchid IS NULL AND sm.FraudCaseId IS NULL ; 
+	IF NOT EXISTS (SELECT TOP(1) 1 FROM dbo.ScannedMatch AS sm WITH (NOLOCK) WHERE sm.matchid = @MatchId AND sm.FraudCaseId = @CurrentFraudCaseId)
+	BEGIN
+		INSERT INTO dbo.ScannedMatch (Matchid, FraudCaseId, ScannedDate, SuspiciousTicketsCount)  
+		SELECT @MatchId, @CurrentFraudCaseId, @ScannedDate, COUNT(1) 
+		FROM #tmpFraudTickets WITH (NOLOCK);
+	END;
 
 	-- Check the results and store/return data
 	IF EXISTS (SELECT TOP(1) 1 FROM #tmpFraudTickets WITH (NOLOCK))
 	BEGIN
 		--===6. UPDATE: TABLE "SuspiciousInfo" if (Match,Custid,FrauseCase) is Exitsing
 		UPDATE si WITH (ROWLOCK, UPDLOCK)
-		SET si.SuspiciousDate	= GETDATE()
-				,	si.TransIds	= si.TransIds + ','+ STUFF((SELECT ',', CONVERT(VARCHAR(15), t1.TransId) 
-										 FROM #tmpFraudTickets t1 WITH (NOLOCK)
-										 WHERE t1.CustId = ft.CustId AND t1.MatchId = ft.MatchId AND si.FraudCaseId = @CurrentFraudCaseId
-										 FOR XML PATH('')), 1, 1, '')
-				,	si.TicketCounter = si.TicketCounter + (SELECT COUNT(1) 
-															FROM #tmpFraudTickets t1 WITH (NOLOCK)
-															WHERE t1.CustId = ft.CustId AND t1.MatchId = ft.MatchId AND si.FraudCaseId = @CurrentFraudCaseId)
-				,	si.IsVerified = 0
-				,	si.ViolationCounter = si.ViolationCounter + (SELECT COUNT(1)
-										FROM (SELECT t2.LiveHomeScore,t2.LiveAwayScore
-										FROM #tmpFraudTickets AS t2 WITH (NOLOCK)
-										WHERE t2.CustId = ft.CustId AND t2.MatchId = ft.MatchId
-										GROUP BY t2.LiveHomeScore,t2.LiveAwayScore) AS A)
-		FROM dbo.SuspiciousInfo si 
-				INNER JOIN #tmpFraudTickets ft WITH (NOLOCK)
+		SET si.SuspiciousDate	= @ScannedDate
+			,	si.TransIds	= si.TransIds + ','+ STUFF((SELECT ',', CONVERT(VARCHAR(15), t1.TransId) 
+										FROM #tmpFraudTickets AS t1 WITH (NOLOCK)
+										WHERE t1.CustId = ft.CustId AND t1.MatchId = ft.MatchId AND si.FraudCaseId = @CurrentFraudCaseId
+										FOR XML PATH('')), 1, 1, '')
+			,	si.TicketCounter = si.TicketCounter + (SELECT COUNT(1) 
+														FROM #tmpFraudTickets AS t1 WITH (NOLOCK)
+														WHERE t1.CustId = ft.CustId AND t1.MatchId = ft.MatchId AND si.FraudCaseId = @CurrentFraudCaseId)
+			,	si.IsVerified = 0
+			,	si.ViolationCounter = si.ViolationCounter + (SELECT COUNT(1)
+									FROM (SELECT t2.LiveHomeScore,t2.LiveAwayScore
+									FROM #tmpFraudTickets AS t2 WITH (NOLOCK)
+									WHERE t2.CustId = ft.CustId AND t2.MatchId = ft.MatchId
+									GROUP BY t2.LiveHomeScore,t2.LiveAwayScore) AS A)
+		FROM dbo.SuspiciousInfo AS si 
+				INNER JOIN #tmpFraudTickets AS ft WITH (NOLOCK)
 					ON si.MatchId = ft.MatchId AND si.FraudCaseId = @CurrentFraudCaseId AND si.CustId = ft.CustId;
 							
 		--===7. INSERT: TABLE "SuspiciousInfo" if (Match,Custid,FrauseCase) is Exitsing
 		INSERT INTO dbo.SuspiciousInfo(CustId, MatchId, EventDate, FraudCaseId, SuspiciousDate, TransIds, ViolatiONCounter, TicketCounter)
-			SELECT [CustId]			= ft.CustId
+			SELECT	[CustId]			= ft.CustId
 				,	[MatchId]			= ft.MatchId
 				,	[EventDate]			= ft.EventDate
 				,	[FraudCaseId]		= @CurrentFraudCaseId
-				,	[SuspiciousDate]	= GETDATE()
+				,	[SuspiciousDate]	= @ScannedDate
 				,	[TransIds]			= STUFF((SELECT ',', CONVERT(VARCHAR(15), t1.TransId) 
 										 FROM #tmpFraudTickets AS t1 WITH(NOLOCK)
-										 WHERE t1.CustId = ft.CustId AND t1.MatchId = ft.MatchId 
+										 WHERE t1.CustId = ft.CustId
 										 FOR XML PATH('')), 1, 1, '')
 				,	ViolationCounter = (SELECT COUNT(1)
 										FROM (SELECT t2.LiveHomeScore,t2.LiveAwayScore
 										FROM #tmpFraudTickets AS t2 WITH (NOLOCK)
-										WHERE t2.CustId = ft.CustId AND t2.MatchId = ft.MatchId
+										WHERE t2.CustId = ft.CustId
 										GROUP BY t2.LiveHomeScore,t2.LiveAwayScore) AS A)
 				,	[TicketCounter]		= COUNT(1)
-			FROM #tmpFraudTickets ft WITH (NOLOCK)
-					LEFT JOIN dbo.SuspiciousInfo si WITH (NOLOCK) 
+			FROM #tmpFraudTickets AS ft WITH (NOLOCK)
+					LEFT JOIN dbo.SuspiciousInfo AS si WITH (NOLOCK) 
 						ON si.MatchId = ft.MatchId AND si.FraudCaseId = @CurrentFraudCaseId AND si.CustId = ft.CustId 
 			WHERE si.MatchID IS NULL AND si.FraudCaseId IS NULL AND si.CustId IS NULL
 			GROUP BY ft.CustId, ft.MatchId, ft.EventDate;
@@ -283,27 +266,26 @@ BEGIN
 		--===8. UPDATE: TABLE "SuspiciousCustomer" IsVerified=0 if has new Fraud Tickets)
 		INSERT INTO #tmpFraudTicketsCustInfo (CustId, Username, CurrencyId)
 		SELECT DISTINCT ft.Custid, ft.Username, ft.CurrencyId
-		FROM #tmpFraudTickets ft WITH (NOLOCK);
+		FROM #tmpFraudTickets AS ft WITH (NOLOCK);
 
 		UPDATE sc WITH (ROWLOCK, UPDLOCK)
 		SET sc.IsVerified = 0, sc.Username = t.Username
-		FROM dbo.SuspiciousCustomer sc 
-			INNER JOIN #tmpFraudTicketsCustInfo t ON sc.Custid = t.CustId;
+		FROM dbo.SuspiciousCustomer AS sc 
+			INNER JOIN #tmpFraudTicketsCustInfo AS t WITH(NOLOCK) ON sc.Custid = t.CustId;
 
 		--===9. INSERT: TABLE "SuspiciousCustomer" if NOT Exitsing Custid
 		INSERT INTO dbo.SuspiciousCustomer(Custid, Username, CurrencyId, IsDelinquent, IsHedge, IsDirty, IsVerified)
 		SELECT ft.CustId, ft.Username, ft.CurrencyId, 0, 0, 0, 0
-		FROM #tmpFraudTicketsCustInfo ft WITH (NOLOCK)
+		FROM #tmpFraudTicketsCustInfo AS ft WITH (NOLOCK)
 		WHERE ft.CustId NOT IN (SELECT sc.CustId 
-								FROM dbo.SuspiciousCustomer sc WITH (NOLOCK));
+								FROM dbo.SuspiciousCustomer AS sc WITH (NOLOCK));
 	END;
 	
 	--- UPDATE SCANNING STATUS: BSNGScanInfo 
-	UPDATE si
+	UPDATE si WITH(ROWLOCK, UPDLOCK)
 	SET		si.HasScanned = 1, si.ScannedDate = @ScannedDate
-	FROM	dbo.BSNGScanInfo si WITH(ROWLOCK)
-			INNER JOIN #tmpMatches tm WITH(NOLOCK) ON si.MatchId = tm.matchid
-	WHERE	si.HasScanned = 0;	
+	FROM	dbo.BSNGScanInfo AS si
+	WHERE	si.MatchId = @MatchId AND si.HasScanned = 0;	
 
 	--- UPDATE SCANNING STATUS: MatchScore, FOR COMPLETED MATCH
 	UPDATE		ms 
@@ -311,8 +293,8 @@ BEGIN
 				, ms.EventStatus = 'Completed'
 				, ms.UpdatedDate = @ScannedDate
 				, ms.TotalScores = m.CurrentScore
-	FROM		dbo.MatchScore ms WITH (ROWLOCK, UPDLOCK)
-	INNER JOIN	#tmpMatches m WITH (NOLOCK)
+	FROM		dbo.MatchScore AS ms WITH (ROWLOCK, UPDLOCK)
+	INNER JOIN	#tmpMatches AS m WITH (NOLOCK)
 				ON ms.MatchId = m.MatchId
 	WHERE		ms.HasScanned = 0
 				AND m.EventStatus = 'Completed';

@@ -5,7 +5,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 
 ALTER PROCEDURE [dbo].[FS_FraudCase_BetsNearGoal_Rule] 
-	@MatchIds VARCHAR(MAX) = NULL
+	@MatchId		INT
 AS
 /*
 	Created: 20181207@Long
@@ -21,6 +21,7 @@ AS
 		- 20190503@Long.Luu: Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
 		- 20190604@John.Ngo: Modify fraud case rules of Bet Neal the Goal [Redmine ID: 114438]
 		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead [Redmine ID: 115326]
+		- 20191010@Long.Luu:	Change input param [Redmine ID: 118117]
 
 	Param's Explanation (filtered by):
 */
@@ -48,9 +49,9 @@ BEGIN
 		,	LiveHomeScore		SMALLINT
 		,	LiveAwayScore		SMALLINT
 		,	PRIMARY KEY CLUSTERED (
-				CustId				ASC
-			,	MatchId				ASC
-			,	TransId				ASC
+				CustId			ASC
+			,	MatchId			ASC
+			,	TransId			ASC
 		)
 	);
 
@@ -64,32 +65,15 @@ BEGIN
 		,	Username			NVARCHAR(50)
 		,	CurrencyId			TINYINT
 	);
-
-	IF OBJECT_ID('tempdb..#tmpMatches') IS NOT NULL
-	BEGIN
-		DROP TABLE	#tmpMatches;
-	END
-
-	CREATE TABLE #tmpMatches
-	(
-		MatchId			INT NOT NULL PRIMARY KEY CLUSTERED
-		, EventDate		DATETIME
-		, EventStatus	NVARCHAR(50)
-		, CurrentScore	TINYINT
-	);
 		
-	---------------------------------------- START THE LOGIC----------------------------------------------
-	-------GET MATCH-------
-	INSERT INTO #tmpMatches(MatchId)
-	SELECT val FROM dbo.SPU_StrSplit(@MatchIds, ',');	
-	
+	---------------------------------------- START THE LOGIC----------------------------------------------	
 	------- GET FRAUD TICKETS-------
 	INSERT INTO #tmpFraudTickets (CustId, Username, CurrencyId, CurrencyName, MatchId, EventDate, TransId, LiveHomeScore, LiveAwayScore)
 	SELECT  ans.custid
 		,	ans.Username
 		,	ans.currency
 		,	ans.CurrencyName
-		,	ans.matchid
+		,	@MatchId
 		,	tch.eventdate
 		,	ans.transid
 		,	ans.liveawayscore
@@ -98,8 +82,8 @@ BEGIN
 	INNER JOIN bodb02.dbo.bettrans AS ans WITH (NOLOCK) ON tch.matchid = ans.matchid
 	INNER JOIN dbo.BSNGScanInfo AS si WITH(NOLOCK) ON si.matchid = ans.matchid 
 		AND ans.livehomescore = si.livehomescore AND ans.liveawayscore = si.liveawayscore
-	INNER JOIN #tmpMatches AS tm WITH(NOLOCK) ON tm.MatchId = tch.MatchId
-	WHERE	ans.liveindicator = 1
+	WHERE	tch.matchid = @MatchId
+		AND ans.liveindicator = 1
 		AND ans.transdate BETWEEN DATEADD(ss, -30, si.LastRejectedTime) AND si.LastRejectedTime
 		AND ans.bettype IN (1, 3, 5, 7, 8, 15)
 		AND ans.currency NOT IN (20, 27, 28)
@@ -108,7 +92,6 @@ BEGIN
 		,	ans.Username
 		,	ans.currency
 		,	ans.CurrencyName
-		,	ans.matchid
 		,	tch.eventdate
 		,	ans.liveawayscore
 		,	ans.livehomescore
@@ -116,17 +99,12 @@ BEGIN
 	OPTION (MAXDOP 1);
 		
 	-------INSERT SCANNED MATCH: TABLE "ScannedMatch" -------
-	INSERT INTO dbo.ScannedMatch (Matchid, FraudCaseId, ScannedDate, SuspiciousTicketsCount)  
-	SELECT [MatchId] = mi.matchid 
-		, [FraudCaseId] = @CurrentFraudCaseId
-		, [ScannedDate] = @ScannedDate 
-		, [SuspiciousTicketsCount] = ISNULL((SELECT COUNT(1) 
-									   		FROM #tmpFraudTickets t1 WITH (NOLOCK)
-											WHERE t1.MatchId = mi.MatchId 
-											GROUP BY t1.MatchId ),0)
-	FROM #tmpMatches mi WITH (NOLOCK) 
-		LEFT JOIN dbo.ScannedMatch sm WITH (NOLOCK)ON mi.matchid = sm.matchid AND sm.FraudCaseId = @CurrentFraudCaseId
-	WHERE sm.Matchid IS NULL AND sm.FraudCaseId IS NULL ; 
+	IF NOT EXISTS (SELECT TOP(1) 1 FROM dbo.ScannedMatch AS sm WITH (NOLOCK) WHERE sm.matchid = @MatchId AND sm.FraudCaseId = @CurrentFraudCaseId)
+	BEGIN
+		INSERT INTO dbo.ScannedMatch (Matchid, FraudCaseId, ScannedDate, SuspiciousTicketsCount)  
+		SELECT @MatchId, @CurrentFraudCaseId, @ScannedDate, COUNT(1) 
+		FROM #tmpFraudTickets WITH (NOLOCK);
+	END;
 
 	------- STORE SUSPICIOUS INFO ------- 
 	IF EXISTS (SELECT TOP(1) 1 FROM #tmpFraudTickets WITH (NOLOCK))

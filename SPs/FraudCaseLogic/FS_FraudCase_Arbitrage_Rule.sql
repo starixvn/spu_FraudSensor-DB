@@ -1,7 +1,3 @@
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
 ALTER PROCEDURE [dbo].[FS_FraudCase_Arbitrage_Rule] 
 		@Matches			XML
 	,	@Associations		XML
@@ -481,6 +477,8 @@ BEGIN
 		FROM		#tmpFraudTickets ft WITH (NOLOCK)
 		GROUP BY	ft.CustId, ft.MatchId, ft.EventDate, ft.GroupId, ft.Bettype, ft.Handicap, ft.LiveHomeScore, ft.LiveAwayScore, ft.IsIPFraud;		
 
+		DECLARE @__outputtemp TABLE (matchid INT, custId INT)
+
 		-- Update table SuspiciousInfo if existed
 		UPDATE si WITH (ROWLOCK, UPDLOCK)
 		SET		si.SuspiciousDate	=	GETDATE()
@@ -494,11 +492,23 @@ BEGIN
 			,	si.IsVerified		=	0
 			,	si.ViolationCounter =	(SELECT COUNT(1)
 										FROM (SELECT DISTINCT t2.Bettype, t2.LiveHomeScore, t2.LiveAwayScore, t2.Handicap
-										FROM dbo.ArbitrageTicketDetails AS t2 WITH (NOLOCK)
+										FROM #tmpFraudTickets AS t2 WITH (NOLOCK)
 										WHERE t2.MatchId = ft.MatchId AND t2.CustId = ft.CustId) AS A)
+		OUTPUT deleted.CustId, deleted.MatchId INTO @__outputtemp(custId, matchid)
 		FROM dbo.ArbitrageSuspiciousInfo si
-				INNER JOIN #tmpFraudTickets ft WITH (NOLOCK)
-					ON si.MatchId = ft.MatchId AND si.CustId = ft.CustId AND si.FraudCaseId = @CurrentFraudCaseId;	
+			INNER JOIN #tmpFraudTickets ft WITH (NOLOCK)
+				ON si.MatchId = ft.MatchId AND si.CustId = ft.CustId AND si.FraudCaseId = @CurrentFraudCaseId;
+				
+		--== copying data into temp before delete
+		-- UPDATE: TABLE "SuspiciousCustomer" IsVerified=0 if has new Fraud Tickets
+		INSERT INTO #tmpFraudTicketsCustInfo (CustId, Username, CurrencyId)
+		SELECT DISTINCT ft.Custid, ft.Username, ft.CurrencyId
+		FROM #tmpFraudTickets ft WITH (NOLOCK);
+
+		--==remove existing data
+		DELETE t
+		FROM #tmpFraudTickets t
+		WHERE EXISTS (SELECT TOP 1 1 FROM @__outputtemp tt WHERE t.CustId = tt.custId AND t.MatchId = tt.matchid)
 							
 		-- Insert new records for table SuspiciousInfo
 		INSERT INTO dbo.ArbitrageSuspiciousInfo(CustId, MatchId, EventDate, FraudCaseId, SuspiciousDate, TransIds, ViolationCounter, TicketCounter)
@@ -513,33 +523,30 @@ BEGIN
 										FOR XML PATH('')), 1, 1, '')
 			,	ViolationCounter	= (SELECT COUNT(1)
 										FROM (SELECT DISTINCT t2.Bettype, t2.LiveHomeScore, LiveAwayScore, t2.Handicap
-										FROM dbo.ArbitrageTicketDetails AS t2 WITH (NOLOCK)
+										FROM #tmpFraudTickets AS t2 WITH (NOLOCK)
 										WHERE t2.MatchId = ft.MatchId AND t2.CustId = ft.CustId) AS A)
 			,	[TicketCounter]		= (SELECT SUM(t3.TicketCounter) 
 										FROM dbo.ArbitrageTicketDetails t3 WITH (NOLOCK)
 										WHERE t3.MatchId = ft.MatchId AND t3.CustId = ft.CustId)
 		FROM #tmpFraudTickets ft WITH (NOLOCK)
-				LEFT JOIN dbo.ArbitrageSuspiciousInfo si WITH (NOLOCK) 
-					ON si.MatchId = ft.MatchId AND si.CustId = ft.CustId  AND si.FraudCaseId = @CurrentFraudCaseId
-		WHERE si.MatchID IS NULL
 		GROUP BY ft.CustId, ft.MatchId, ft.EventDate;			
-		
-		-- UPDATE: TABLE "SuspiciousCustomer" IsVerified=0 if has new Fraud Tickets
-		INSERT INTO #tmpFraudTicketsCustInfo (CustId, Username, CurrencyId)
-		SELECT DISTINCT ft.Custid, ft.Username, ft.CurrencyId
-		FROM #tmpFraudTickets ft WITH (NOLOCK);
+
+		DECLARE @__custIds TABLE (custid INT PRIMARY KEY)
 
 		UPDATE sc WITH (ROWLOCK, UPDLOCK)
 		SET sc.IsVerified = 0, sc.Username = t.Username
+		OUTPUT deleted.Custid INTO @__custIds(custid)
 		FROM dbo.SuspiciousCustomer sc 
 			INNER JOIN #tmpFraudTicketsCustInfo t ON sc.Custid = t.CustId;
+
+		DELETE t
+		FROM #tmpFraudTicketsCustInfo t
+		WHERE t.CustId IN (SELECT tt.custid FROM @__custIds tt)
 
 		-- INSERT: TABLE "SuspiciousCustomer" if NOT Exitsing Custid
 		INSERT INTO dbo.SuspiciousCustomer(Custid, Username, CurrencyId, IsDelinquent, IsHedge, IsDirty, IsVerified)
 		SELECT ft.CustId, ft.Username, ft.CurrencyId, 0, 0, 0, 0
 		FROM #tmpFraudTicketsCustInfo ft WITH (NOLOCK)
-			LEFT JOIN dbo.SuspiciousCustomer sc WITH (NOLOCK) ON ft.CustId = sc.CustId
-		WHERE	sc.CustId IS NULL;
 
 	END;
 

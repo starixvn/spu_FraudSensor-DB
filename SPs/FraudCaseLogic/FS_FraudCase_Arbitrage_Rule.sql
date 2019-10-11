@@ -281,7 +281,7 @@ BEGIN
 	);	
 
 	-- INIT	
-	INSERT INTO #tmpMatches (MatchId, CustId, BetType, Handicap, LiveHomeScore, LiveAwayScore)
+	INSERT INTO #tmpMatches (MatchId, CustId, BetType, LiveHomeScore, LiveAwayScore, Handicap)
 	SELECT	T.C.value('./@MatchId', 'INT') AS MatchId
 		,	T.C.value('./@CustId', 'INT') AS CustId
 		,	T.C.value('./@BetType', 'INT') AS BetType

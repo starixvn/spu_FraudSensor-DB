@@ -110,8 +110,9 @@ BEGIN
 			INNER JOIN dbo.SuspiciousInfo s WITH(NOLOCK) ON t.CustId = s.CustId
 		WHERE s.MatchId = @__matchId AND s.FraudCaseId = @CurrentFraudCaseId
 		
-		INSERT INTO dbo.SuspiciousInfo(CustId, EventDate, FraudCaseId, SuspiciousDate, TransIds, ViolationCounter, TicketCounter)
+		INSERT INTO dbo.SuspiciousInfo(CustId, MatchId, EventDate, FraudCaseId, SuspiciousDate, TransIds, ViolationCounter, TicketCounter)
 		SELECT	[CustId]			= ft.CustId
+			,	[MatchId]			= @__matchId
 			,	[EventDate]			= ft.EventDate
 			,	[FraudCaseId]		= @CurrentFraudCaseId
 			,	[SuspiciousDate]	= @ScannedDate

@@ -8,9 +8,9 @@ AS
 		- Deleting after MB
 
 	DB: bodb_FraudSensor
-	Original:
 
 	Revisions:	
+		- 20191022@Patrick: Init [Redmine: #118117]
 
 	Param's Explanation (filtered by):
 */

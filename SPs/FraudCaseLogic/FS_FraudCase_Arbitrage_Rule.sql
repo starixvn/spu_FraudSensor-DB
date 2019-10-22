@@ -494,7 +494,7 @@ BEGIN
 										FROM (SELECT DISTINCT t2.Bettype, t2.LiveHomeScore, t2.LiveAwayScore, t2.Handicap
 										FROM #tmpFraudTickets AS t2 WITH (NOLOCK)
 										WHERE t2.MatchId = ft.MatchId AND t2.CustId = ft.CustId) AS A)
-		OUTPUT deleted.CustId, deleted.MatchId INTO @__outputtemp(custId, matchid)
+		OUTPUT inserted.CustId, inserted.MatchId INTO @__outputtemp(custId, matchid)
 		FROM dbo.ArbitrageSuspiciousInfo si
 			INNER JOIN #tmpFraudTickets ft WITH (NOLOCK)
 				ON si.MatchId = ft.MatchId AND si.CustId = ft.CustId AND si.FraudCaseId = @CurrentFraudCaseId;

@@ -38,35 +38,22 @@ BEGIN
 	INSERT INTO #tmpMatch(MatchId)
 	SELECT VAL FROM dbo.SPU_StrSplit(@MatchIds, ',');	
 
-	BEGIN TRY
-	WHILE	EXISTS (SELECT TOP(1) 1 FROM #tmpMatch WITH (NOLOCK))
-		BEGIN
-			SELECT TOP(1) @MatchId = MatchId 
-			FROM #tmpMatch WITH (NOLOCK);
-
-			UPDATE dbo.ChangedMatch WITH(ROWLOCK, UPDLOCK)
-			SET Note = @Note
-			WHERE MatchId = @MatchId;		
+	UPDATE cm WITH(ROWLOCK, UPDLOCK)
+	SET Note = @Note
+	FROM dbo.ChangedMatch AS cm
+		INNER JOIN #tmpMatch AS m WITH(NOLOCK) ON cm.MatchId = m.MatchId;
 				
-			DELETE #tmpMatch 
-			WHERE MatchId = @MatchId;
-				
-			------------ Write Log ------------ 		
-			SELECT @LogID = 26;
-			SELECT @LogData = 'MatchId=' + DBO.SPU_ToString(@MatchId) +';
-					Note=' + @Note
-			SELECT @SPName = OBJECT_NAME(@@ProcID);
+	------------ Write Log ------------ 		
+	SELECT @LogID = 26;
+	SELECT @LogData = 'MatchIds=' + @MatchIds +';
+			Note=' + @Note
+	SELECT @SPName = OBJECT_NAME(@@ProcID);
 
-			EXEC [dbo].[FS_UserLog_Insert]  
-					@LogTypeId		= @LogID   
-				,	@UserId			= @UserId  
-				,	@SPName			= @SPName
-				,	@Details		= @LogData;
-		END;
-	END TRY
-	BEGIN CATCH
-		SET @ErrCode = ERROR_NUMBER();
-	END CATCH;
+	EXEC [dbo].[FS_UserLog_Insert]  
+			@LogTypeId		= @LogID   
+		,	@UserId			= @UserId  
+		,	@SPName			= @SPName
+		,	@Details		= @LogData;
 END;
 
 GO

@@ -1,8 +1,4 @@
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
+
 ALTER PROCEDURE [dbo].[FS_Rpt_OfficeIP_Get]
 		@FromDate					DATETIME
 	,	@ToDate						DATETIME 
@@ -14,8 +10,9 @@ AS
 	Server:		
 
 	Revisions:
-		- 20181114@Long: Adding View Permission on Special Currencies [Redmine ID: #104707]
-		- 20190219@John: Update logic Special Currencies [Redmine ID: #99753]
+		- 20181114@Long.Luu: Adding View Permission on Special Currencies [Redmine ID: #104707]
+		- 20190219@John.Ngo: Update logic Special Currencies [Redmine ID: #99753]
+		- 20191025@Long.Luu: Support Office IP for Login transaction [Redmine ID: #121800]
 
 	Param's Explanation: 
 	
@@ -27,7 +24,8 @@ BEGIN
 
 	SET NOCOUNT ON;
 	
-	DECLARE @FraudCaseId INT = 2;
+	DECLARE @FraudCaseId		INT = 2;
+	DECLARE @LastTimeOfToDate	DATETIME = DATEADD(ss, -1, DATEADD(dd, 1, @ToDate));
 	
 	IF OBJECT_ID('tempdb..#tmpTicketDetails') IS NOT NULL
 	BEGIN
@@ -75,7 +73,7 @@ BEGIN
 		INNER JOIN dbo.SuspiciousCustomer c WITH(NOLOCK) ON si.Custid = c.custid
 		CROSS APPLY dbo.SPU_StrSplit(si.transids, ',')
 	WHERE	si.FraudCaseId = @FraudCaseId
-		AND DATEADD(dd, 0, DATEDIFF(dd, 0, si.SuspiciousDate)) BETWEEN @FromDate AND @ToDate
+		AND DATEADD(dd, 0, DATEDIFF(dd, 0, si.SuspiciousDate)) BETWEEN @FromDate AND @LastTimeOfToDate
 		AND (@IsShowSpecialCurrencies = 1 OR c.CurrencyId NOT IN (SELECT CurrencyId FROM dbo.SpecialCurrency WITH(NOLOCK)));
 	
 	
@@ -171,6 +169,31 @@ BEGIN
 		,	td.IP
 		,	td.currencyname
 	FROM	#tmpTicketDetails td WITH(NOLOCK)
+	UNION
+	SELECT	sc.Username
+		,	NULL
+		,	li.TransDate
+		,	NULL
+		,	NULL
+		,	NULL
+		,	NULL
+		,	NULL
+		,	NULL
+		,	NULL
+		,	NULL
+		,	NULL
+		,	NULL
+		,	NULL
+		,	NULL
+		,	NULL
+		,	NULL
+		,	NULL
+		,	li.IP
+		,	ex.currency
+	FROM dbo.[OfficeIPLogIn] AS li WITH(NOLOCK)
+		INNER JOIN dbo.[SuspiciousCustomer] AS sc WITH(NOLOCK) ON li.CustId = sc.Custid
+		INNER JOIN bodb02.dbo.[Exchange] AS ex WITH(NOLOCK) ON sc.CurrencyId = ex.exchangeid
+	WHERE li.TransDate BETWEEN @FromDate AND @LastTimeOfToDate
 	ORDER BY Username, TransId;	
 END;
 

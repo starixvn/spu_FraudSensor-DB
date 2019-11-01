@@ -21,6 +21,7 @@ AS
 		- 20190503@Long.Luu:	Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
 		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead [Redmine ID: 115326]
 		- 20190925@Long.Luu:	Change seconds to the goal [Redmine ID: 120881]
+		- 20191031@Long.Luu:	Exclude LOSE tickets from scanning [Redmine ID: 123027]
 
 	Param's Explanation (filtered by):
 */
@@ -191,6 +192,7 @@ BEGIN
 			AND ans.liveawayscore = si.liveawayscore
 			AND ans.bettype IN (1, 3, 5, 7, 8, 15)
 			AND ans.currency NOT IN (20, 27, 28)
+			AND ans.statusID <> 113
 			AND si.HasScanned = 0
 		GROUP BY ans.custid
 			,	ans.username

@@ -194,6 +194,7 @@ BEGIN
 		INNER JOIN dbo.[SuspiciousCustomer] AS sc WITH(NOLOCK) ON li.CustId = sc.Custid
 		INNER JOIN bodb02.dbo.[Exchange] AS ex WITH(NOLOCK) ON sc.CurrencyId = ex.exchangeid
 	WHERE li.TransDate BETWEEN @FromDate AND @LastTimeOfToDate
+		AND sc.CurrencyId NOT IN (20, 27, 28)
 	ORDER BY Username, TransId;	
 END;
 

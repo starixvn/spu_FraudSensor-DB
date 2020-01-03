@@ -24,8 +24,7 @@ BEGIN
 						SELECT DISTINCT FootprintId
 						FROM dbo.FootprintHistory AS f1 WITH(NOLOCK)
 						WHERE f1.CustId = @CustId
-					) AS temp ON temp.FootprintId = f.FootprintId
-	WHERE f.CustId <> @CustId;
+					) AS temp ON temp.FootprintId = f.FootprintId;
 
 	SELECT	a.CustId
 		,	c.username AS Username
@@ -33,7 +32,7 @@ BEGIN
 		,	a.DateCreated AS CreatedDate
 	FROM #tmpAssociatedCustId AS a WITH(NOLOCK)
 		INNER JOIN bodb02.dbo.Customer AS c WITH(NOLOCK) ON a.CustId = c.custid
-	ORDER BY a.DateCreated ASC;
+	ORDER BY a.DateCreated DESC;
 END;
 
 GO

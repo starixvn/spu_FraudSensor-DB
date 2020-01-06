@@ -50,7 +50,7 @@ BEGIN
 		,	a.DateCreated AS CreatedDate
 	FROM #tmpAssociatedCustId AS a WITH(NOLOCK)
 		INNER JOIN bodb02.dbo.Customer AS c WITH(NOLOCK) ON a.CustId = c.custid
-	ORDER BY a.DateCreated DESC;
+	ORDER BY a.DateCreated DESC, a.CustId DESC;
 END;
 
 GO

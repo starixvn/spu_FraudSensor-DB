@@ -17,14 +17,32 @@ AS
 BEGIN
 	SET NOCOUNT ON;	
 
-    SELECT	DISTINCT f.CustId, f.DateCreated
-	INTO #tmpAssociatedCustId
-	FROM dbo.FootprintHistory AS f WITH(NOLOCK)
-		INNER JOIN	(
+	IF	OBJECT_ID('tempdb..#tmpAssociatedCustId') IS NOT NULL
+	BEGIN
+		DROP TABLE #tmpAssociatedCustId;
+	END;
+
+	CREATE TABLE	#tmpAssociatedCustId (
+			CustId			INT NOT NULL
+		,	DateCreated		DATETIME NOT NULL
+		,	PRIMARY KEY CLUSTERED (DateCreated, CustId)	
+	);
+
+	;WITH cte AS
+	(
+		SELECT f.CustId, f.DateCreated,
+				ROW_NUMBER() OVER (PARTITION BY f.CustId ORDER BY f.DateCreated DESC) AS rn
+		FROM dbo.FootprintHistory AS f WITH(NOLOCK)
+			INNER JOIN	(
 						SELECT DISTINCT FootprintId
 						FROM dbo.FootprintHistory AS f1 WITH(NOLOCK)
 						WHERE f1.CustId = @CustId
-					) AS temp ON temp.FootprintId = f.FootprintId;
+					) AS temp ON temp.FootprintId = f.FootprintId
+	)
+	INSERT INTO #tmpAssociatedCustId(CustId, DateCreated)
+    SELECT	CustId, DateCreated
+	FROM cte
+	WHERE cte.rn = 1;
 
 	SELECT	a.CustId
 		,	c.username AS Username

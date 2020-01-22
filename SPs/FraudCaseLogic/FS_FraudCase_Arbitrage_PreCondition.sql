@@ -20,6 +20,7 @@ AS
 		- 20190404@Casey.Huynh: Implement, not scan Match if it has no ticket in bettran tables [111454]
 		- 20190509@Casey.Huynh:	Trace Log Info [Redmine ID: 110672]
 		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead & Remove Trace Log [Redmine ID: 115326]
+		- 20200111@Long.Luu:	Remove redundant data [Redmine ID: 125983]
 
 	Param's Explanation (filtered by):  
 	
@@ -129,8 +130,7 @@ BEGIN
 				, b.livehomescore
 				, b.liveawayscore
 				, b.betType
-				, b.hdp1
-				, b.hdp2
+				, b.hdp1 - b.hdp2
 				, b.CustId;
 
 	--==3. UPDATE: COMPLETED MATCHED IF MATCH.EVENTSTATUS IS COMPLETED AND ALL BETTYPE (1,3,5,7,8) IS SCANNED

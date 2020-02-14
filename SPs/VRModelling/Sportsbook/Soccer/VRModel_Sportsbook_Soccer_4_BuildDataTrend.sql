@@ -1,20 +1,13 @@
-CREATE PROCEDURE [dbo].[VRModel_Sportsbook_Soccer_4_BuildDataTrend]
-		@FromDate			DATE
-	,	@ToDate				DATE
-	,	@IsDeposit			BIT
-	,	@IsLive				BIT
-	,	@LeagueGroupId		SMALLINT
-	,	@LeagueId			INT
-	,	@BettypeId			INT
+ALTER PROCEDURE [dbo].[VRModel_Sportsbook_Soccer_4_BuildDataTrend]
 AS
 /*
-	Created: 20200122@Long.Luu
+	Created: 20200212@Long.Luu
 	Task : 
 	DB: bodb_FraudSensor
 	Original:
 
 	Revisions:
-		- 20200122@Long.Luu: Created [Redmine ID: #]
+		- 20200212@Long.Luu: Created [Redmine ID: #127584]
 
 	Param's Explanation:
 */
@@ -25,6 +18,7 @@ BEGIN
 	-- Calc Slope and Intercept from the raw ChangeOfDanger table
 	TRUNCATE TABLE dbo.[VR2Model_HorizontalSlopeIntercept];
 	TRUNCATE TABLE dbo.[VR2Model_VerticalSlopeInterceptWinner];
+	TRUNCATE TABLE dbo.[VR2Model_VerticalSlopeInterceptLoser];
 	TRUNCATE TABLE dbo.[VR2Model_ChanceOfDangerSmoothHorizontal];
 	TRUNCATE TABLE dbo.[VR2Model_ChanceOfDangerSmoothVertical];
 	
@@ -90,8 +84,6 @@ BEGIN
 	GROUP BY c.WeekOrder;
 
 	-- Create Smoothing tables
-		
-
 	INSERT INTO dbo.[VR2Model_ChanceOfDangerSmoothHorizontal](MarginRange, WeekOrder, PercentageOfWin)
 	SELECT	r.MarginRange
 		,	r.WeekOrder

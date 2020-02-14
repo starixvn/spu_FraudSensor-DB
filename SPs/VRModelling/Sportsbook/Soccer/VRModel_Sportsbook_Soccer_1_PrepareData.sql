@@ -1,4 +1,4 @@
-CREATE PROCEDURE [dbo].[VRModel_Sportsbook_Soccer_1_PrepareData]
+ALTER PROCEDURE [dbo].[VRModel_Sportsbook_Soccer_1_PrepareData]
 		@FromDate			DATE
 	,	@ToDate				DATE
 	,	@IsDeposit			BIT
@@ -8,64 +8,87 @@ CREATE PROCEDURE [dbo].[VRModel_Sportsbook_Soccer_1_PrepareData]
 	,	@BettypeId			INT
 AS
 /*
-	Created: 20200122@Long.Luu
+	Created: 20200212@Long.Luu
 	Task : 
 	DB: bodb_FraudSensor
 	Original:
 
 	Revisions:
-		- 20200122@Long.Luu: Created [Redmine ID: #]
+		- 20200212@Long.Luu: Created [Redmine ID: #127584]
 
 	Param's Explanation:
 */
 BEGIN
 
 	SET NOCOUNT ON;
-	-- Sum over the date range
+
+	-- Initialize
 	DECLARE @Settings_MinBetCount	INT	= 1
 		,	@Settings_MinBet		MONEY = 499;
 
+	IF	OBJECT_ID('tempdb..#tmpSoccerWeeklyData') IS NOT NULL
+	BEGIN
+		DROP TABLE #tmpSoccerWeeklyData;
+	END;
+
+	CREATE TABLE #tmpSoccerWeeklyData(
+		[FromDate]			DATE NOT NULL,
+		[ToDate]			DATE NOT NULL,
+		[WeekOrder]			INT NOT NULL,
+		[CustId]			INT NOT NULL,
+		[SuperId]			INT NOT NULL,
+		[RealTurnover]		MONEY NULL,
+		[RealWinloss]		MONEY NULL,
+		CONSTRAINT PK_#tmpSoccerWeeklyData PRIMARY KEY CLUSTERED (
+			[FromDate]		ASC,
+			[ToDate]		ASC,
+			[CustId]		ASC,
+			[SuperId]		ASC,
+			[WeekOrder]		ASC
+		)
+	);
 
 	-- START
 	TRUNCATE TABLE dbo.[VR2Model_CumulativeMarginByWeek];
-	TRUNCATE TABLE dbo.[VR2Model_TotalCumuMarginByWeek];
+	TRUNCATE TABLE dbo.[VR2Model_CustomerCumulativeInfo];
 
-	INSERT INTO dbo.[VR2Model_CumulativeMarginByWeek](CustId, SuperId, Margin, WeekOrder)
-	SELECT	w.CustId, w.SuperId, SUM(w.RealWinloss) / SUM(w.RealTurnover), DATEPART( wk,w.FromDate) AS 'WeekOrder'
+	INSERT INTO #tmpSoccerWeeklyData(FromDate, ToDate, CustId, SuperId, RealTurnover, RealWinloss)
+	SELECT	w.FromDate
+		,	w.ToDate
+		,	w.CustId
+		,	w.SuperId
+		,	w.RealTurnover
+		,	w.RealWinloss
 	FROM dbo.[VR2Model_SoccerWeeklyData] AS w WITH(NOLOCK)
-	WHERE w.LeagueId = @LeagueId
+	WHERE w.FromDate >= @FromDate AND w.ToDate <= @ToDate
+		AND w.LeagueId = @LeagueId
 		AND w.BettypeId = @BettypeId
 		AND w.IsLive = @IsLive
 		AND w.BetCount > @Settings_MinBetCount
-		AND w.RealTurnover > @Settings_MinBet
-	GROUP BY w.CustId, w.SuperId, w.FromDate;
+		AND w.RealTurnover > @Settings_MinBet;
 
-	INSERT INTO dbo.[VR2Model_TotalCumuMarginByWeek](CustId, SuperId, Margin, NumOfWeeksBet)
-	SELECT tmp1.CustId, tmp1.SuperId, tmp1.Margin,tmp2.NumOfWeeksBet FROM
-	(
-		Select top 1 w.CustId, w.SuperID, w.Margin FROM dbo.[VR2Model_CumulativeMarginByWeek] AS w WITH(NOLOCK) ORDER BY w.WeekOrder DESC
-	) AS tmp1
-	INNER JOIN  
-	(
-		SELECT w.CustId,COUNT(w.WeekOrder) AS 'NumOfWeeksBet'
-		FROM dbo.[VR2Model_CumulativeMarginByWeek] AS w WITH(NOLOCK)
-		GROUP BY w.CustId
-	) AS tmp2 
-	ON tmp1.CustId = tmp2.CustId;
+	UPDATE t WITH(ROWLOCK, UPDLOCK)
+	SET t.WeekOrder = ROW_NUMBER() OVER(PARTITION BY t.CustId ORDER BY t.FromDate ASC)
+	FROM #tmpSoccerWeeklyData AS t;
 
-	INSERT INTO dbo.[VR2Model_WinLoseByWeek](CustId, Winner, NumOfWeeksBet)
-	SELECT tmp1.CustId, tmp1.Winner,tmp2.NumOfWeeksBet FROM
+	;WITH rs AS
 	(
-		Select top 1 w.CustId, CASE WHEN w.Margin < 0 THEN 1 ELSE 0 END AS 'Winner' FROM dbo.[VR2Model_CumulativeMarginByWeek] AS w WITH(NOLOCK) ORDER BY w.WeekOrder DESC
-	) AS tmp1
-	INNER JOIN  
-	(
-		SELECT w.CustId,COUNT(w.WeekOrder) AS 'NumOfWeeksBet'
-		FROM dbo.[VR2Model_CumulativeMarginByWeek] AS w WITH(NOLOCK)
-		GROUP BY w.CustId
-	) AS tmp2 
-	ON tmp1.CustId = tmp2.CustId;
+		SELECT	t.CustId, t.SuperId, t.WeekOrder, t.RealTurnover, t.RealWinloss
+		FROM #tmpSoccerWeeklyData AS t WITH(NOLOCK)
+		WHERE t.WeekOrder = 1
 
+		UNION ALL
+
+		SELECT	t1.CustId, t1.SuperId, t1.WeekOrder, t1.RealTurnover + rs.RealTurnover,  t1.RealWinloss + rs.RealWinloss
+		FROM rs 
+			INNER JOIN #tmpSoccerWeeklyData AS t1 WITH(NOLOCK) ON rs.CustId = t1.CustId AND t1.WeekOrder = rs.WeekOrder + 1
+	)
+	INSERT INTO dbo.[VR2Model_CumulativeMarginByWeek](CustId, SuperId, WeekOrder, Margin)
+	SELECT	CustId
+		,	SuperId
+		,	WeekOrder
+		,	CAST(ROUND(RealWinloss / RealTurnover, 2) AS NUMERIC(1,1))
+	FROM rs;
 		
 	UPDATE dbo.[VR2Model_CumulativeMarginByWeek] WITH(ROWLOCK, UPDLOCK)
 	SET Margin = 0.1
@@ -75,6 +98,16 @@ BEGIN
 	SET Margin = -0.1
 	WHERE Margin < -0.1;
 
+	;WITH cte AS
+	(
+	   SELECT CustId, SuperId, WeekOrder, Margin,
+			 ROW_NUMBER() OVER (PARTITION BY CustId ORDER BY WeekOrder DESC) AS RowNumber
+	   FROM dbo.[VR2Model_CumulativeMarginByWeek] WITH(NOLOCK)
+	)
+	INSERT INTO dbo.[VR2Model_CustomerCumulativeInfo](CustId, SuperId, Margin, NumOfWeeksBet)
+	SELECT CustId, SuperId, Margin, WeekOrder
+	FROM cte
+	WHERE RowNumber = 1;
 END;
 
 /*<info serverAlias="DBFS-bodb_FraudSensor" executers="bodbSPUNet" isFunction="0" isNested="0"></info>*/

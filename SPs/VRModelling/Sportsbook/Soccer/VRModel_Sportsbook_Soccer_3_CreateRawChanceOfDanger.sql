@@ -1,20 +1,13 @@
-CREATE PROCEDURE [dbo].[VRModel_Sportsbook_Soccer_3_CreateRawChanceOfDanger]
-		@FromDate			DATE
-	,	@ToDate				DATE
-	,	@IsDeposit			BIT
-	,	@IsLive				BIT
-	,	@LeagueGroupId		SMALLINT
-	,	@LeagueId			INT
-	,	@BettypeId			INT
+ALTER PROCEDURE [dbo].[VRModel_Sportsbook_Soccer_3_CreateRawChanceOfDanger]
 AS
 /*
-	Created: 20200122@Long.Luu
+	Created: 20200212@Long.Luu
 	Task : 
 	DB: bodb_FraudSensor
 	Original:
 
 	Revisions:
-		- 20200122@Long.Luu: Created [Redmine ID: #]
+		- 20200212@Long.Luu: Created [Redmine ID: #127584]
 
 	Param's Explanation:
 */

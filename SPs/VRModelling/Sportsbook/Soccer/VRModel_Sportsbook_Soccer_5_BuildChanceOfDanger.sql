@@ -1,11 +1,4 @@
-CREATE PROCEDURE [dbo].[VRModel_Sportsbook_Soccer_5_BuildChanceOfDanger]
-		@FromDate			DATE
-	,	@ToDate				DATE
-	,	@IsDeposit			BIT
-	,	@IsLive				BIT
-	,	@LeagueGroupId		SMALLINT
-	,	@LeagueId			INT
-	,	@BettypeId			INT
+ALTER PROCEDURE [dbo].[VRModel_Sportsbook_Soccer_5_BuildChanceOfDanger]
 AS
 /*
 	Created: 20200122@Long.Luu
@@ -31,7 +24,6 @@ BEGIN
 		,	(h.PercentageOfWin + v.PercentageOfWin) / 2
 	FROM dbo.[VR2Model_ChanceOfDangerSmoothHorizontal] AS h WITH(NOLOCK)
 		INNER JOIN dbo.[VR2Model_ChanceOfDangerSmoothVertical] AS v WITH(NOLOCK) ON h.MarginRange = v.MarginRange AND h.WeekOrder = v.WeekOrder;
-
 END;
 
 /*<info serverAlias="DBFS-bodb_FraudSensor" executers="bodbSPUNet" isFunction="0" isNested="0"></info>*/

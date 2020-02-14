@@ -1,20 +1,13 @@
-CREATE PROCEDURE [dbo].[VRModel_Sportsbook_Soccer_2_PrecalcData]
-		@FromDate			DATE
-	,	@ToDate				DATE
-	,	@IsDeposit			BIT
-	,	@IsLive				BIT
-	,	@LeagueGroupId		SMALLINT
-	,	@LeagueId			INT
-	,	@BettypeId			INT
+ALTER PROCEDURE [dbo].[VRModel_Sportsbook_Soccer_2_PrecalcData]
 AS
 /*
-	Created: 20200122@Long.Luu
+	Created: 20200212@Long.Luu
 	Task : 
 	DB: bodb_FraudSensor
 	Original:
 
 	Revisions:
-		- 20200122@Long.Luu: Created [Redmine ID: #]
+		- 20200212@Long.Luu: Created [Redmine ID: #127584]
 
 	Param's Explanation:
 */
@@ -31,8 +24,7 @@ BEGIN
 		,	w.WeekOrder
 		,	COUNT(DISTINCT w.CustId)
 	FROM dbo.[VR2Model_CumulativeMarginByWeek] AS w WITH(NOLOCK)
-		INNER JOIN dbo.[VR2Model_WinLoseByWeek] AS c WITH(NOLOCK) ON w.CustId = c.CustId
-	WHERE c.Winner = 1 
+	WHERE w.Margin > 0
 	GROUP BY w.Margin, w.WeekOrder;
 
 	INSERT INTO dbo.[VR2Model_LoserByWeekCounter](MarginRange, WeekOrder, NumOfLoser)
@@ -40,8 +32,7 @@ BEGIN
 		,	w.WeekOrder
 		,	COUNT(DISTINCT w.CustId)
 	FROM dbo.[VR2Model_CumulativeMarginByWeek] AS w WITH(NOLOCK)
-		INNER JOIN dbo.[VR2Model_WinLoseByWeek] AS c WITH(NOLOCK) ON w.CustId = c.CustId
-	WHERE c.Winner = 0 
+	WHERE w.Margin <= 0
 	GROUP BY w.Margin, w.WeekOrder;
 
 END;

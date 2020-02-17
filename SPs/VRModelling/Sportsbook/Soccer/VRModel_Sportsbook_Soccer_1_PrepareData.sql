@@ -5,9 +5,9 @@ ALTER PROCEDURE [dbo].[VRModel_Sportsbook_Soccer_1_PrepareData]
 	,	@IsLive				BIT
 	,	@SportId			INT
 	,	@LeagueGroupId		SMALLINT
-	,	@LeagueId			INT
+	,	@Leagues			VARCHAR(200)
 	,	@BettypeGroupId		INT
-	,	@BettypeId			INT
+	,	@Bettypes			VARCHAR(200)
 AS
 /*
 	Created: 20200212@Long.Luu
@@ -50,6 +50,26 @@ BEGIN
 		)
 	);
 
+	IF	OBJECT_ID('tempdb..#tmpBettypes') IS NOT NULL
+		DROP TABLE	#tmpBettypes;
+
+	CREATE TABLE	#tmpBettypes (
+			Bettype			SMALLINT PRIMARY KEY
+	);
+
+	INSERT INTO #tmpBettypes(BetType)
+	SELECT val FROM dbo.strSplit_Key(@Bettypes,',');
+
+	IF	OBJECT_ID('tempdb..#tmpLeagues') IS NOT NULL
+		DROP TABLE	#tmpLeagues;
+
+	CREATE TABLE	#tmpLeagues (
+			LeagueId		SMALLINT PRIMARY KEY
+	);
+
+	INSERT INTO #tmpLeagues(LeagueId)
+	SELECT val FROM dbo.strSplit_Key(@Leagues,',');
+
 	-- START
 	TRUNCATE TABLE dbo.[VR2Model_CumulativeMarginByWeek];
 	TRUNCATE TABLE dbo.[VR2Model_CustomerCumulativeInfo];
@@ -62,9 +82,10 @@ BEGIN
 		,	w.RealTurnover
 		,	w.RealWinloss
 	FROM dbo.[VR2Model_SoccerWeeklyData] AS w WITH(NOLOCK)
+		INNER JOIN #tmpBettypes AS b WITH(NOLOCK) ON w.BettypeId = b.Bettype
+		INNER JOIN #tmpLeagues AS l WITH(NOLOCK) ON w.LeagueId = l.LeagueId
 	WHERE w.FromDate >= @FromDate AND w.ToDate <= @ToDate
-		AND w.LeagueId = @LeagueId
-		AND w.BettypeId = @BettypeId
+		AND w.IsDeposit = @IsDeposit
 		AND w.IsLive = @IsLive
 		AND w.BetCount > @Settings_MinBetCount
 		AND w.RealTurnover > @Settings_MinBet;

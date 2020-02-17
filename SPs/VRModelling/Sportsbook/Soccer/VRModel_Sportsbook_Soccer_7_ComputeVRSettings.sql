@@ -5,9 +5,9 @@ ALTER PROCEDURE [dbo].[VRModel_Sportsbook_Soccer_7_ComputeVRSettings]
 	,	@IsLive				BIT
 	,	@SportId			INT
 	,	@LeagueGroupId		SMALLINT
-	,	@LeagueId			INT
+	,	@Leagues			VARCHAR(200)
 	,	@BettypeGroupId		INT
-	,	@BettypeId			INT
+	,	@Bettypes			VARCHAR(200)
 AS
 /*
 	Created: 20200122@Long.Luu
@@ -24,6 +24,51 @@ BEGIN
 
 	SET NOCOUNT ON;
 
+	DECLARE @BettypeId		INT
+		,	@LeagueId		INT;
+
+	-- INITIALIZE
+	IF	OBJECT_ID('tempdb..#tmpBettypes') IS NOT NULL
+		DROP TABLE	#tmpBettypes;
+
+	CREATE TABLE	#tmpBettypes (
+			Bettype			SMALLINT PRIMARY KEY
+	);
+
+	INSERT INTO #tmpBettypes(BetType)
+	SELECT val FROM dbo.strSplit_Key(@Bettypes,',');
+
+	IF	OBJECT_ID('tempdb..#tmpLeagues') IS NOT NULL
+		DROP TABLE	#tmpLeagues;
+
+	CREATE TABLE	#tmpLeagues (
+			LeagueId		SMALLINT PRIMARY KEY
+	);
+
+	INSERT INTO #tmpLeagues(LeagueId)
+	SELECT val FROM dbo.strSplit_Key(@Leagues,',');
+
+	-- START
+	IF ((SELECT COUNT(1) FROM #tmpLeagues WITH(NOLOCK)) > 1)
+	BEGIN
+		SELECT @LeagueId = NULL, @BettypeId = NULL;
+	END
+	ELSE
+	BEGIN
+		SELECT TOP (1) @LeagueId = LeagueId
+		FROM #tmpLeagues WITH(NOLOCK);
+	END;
+
+	IF ((SELECT COUNT(1) FROM #tmpBettypes WITH(NOLOCK)) > 1)
+	BEGIN
+		SELECT @BettypeId = NULL;
+	END
+	ELSE
+	BEGIN
+		SELECT TOP (1) @BettypeId = Bettype
+		FROM #tmpBettypes WITH(NOLOCK);
+	END;
+	
 	INSERT INTO dbo.VR2Model_VirtualRate(
 			CustId
 		,	IsDeposit

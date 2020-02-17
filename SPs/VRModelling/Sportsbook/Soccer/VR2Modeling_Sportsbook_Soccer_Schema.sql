@@ -186,3 +186,28 @@ CREATE TABLE [dbo].VR2Model_LicenseeModifier(
 ) ON [DATA]
 
 GO
+
+CREATE TABLE [dbo].[VR2Model_VirtualRate] (
+		[CustId]				INT NOT NULL
+	,	[IsDeposit]				BIT NOT NULL
+	,	[IsLive]				BIT NOT NULL
+	,	[SportId]				INT		
+	,	[LeagueGroupId]			INT			
+	,	[LeagueId]				INT
+	,	[BettypeGroupId]		INT
+	,	[BettypeId]				INT
+	,	[VirtualMultiplier]		FLOAT 
+	,	[CreatedDate]			DATETIME
+	,	CONSTRAINT PK_VR2Model_VirtualRate PRIMARY KEY CLUSTERED(
+			[CustId]			ASC,
+			[IsDeposit]			ASC,
+			[IsLive]			ASC,
+			[SportId]			ASC,
+			[LeagueGroupId]		ASC,
+			[LeagueId]			ASC,
+			[BettypeGroupId]	ASC,
+			[BettypeId]			ASC
+		)
+) ON [DATA]
+
+GO

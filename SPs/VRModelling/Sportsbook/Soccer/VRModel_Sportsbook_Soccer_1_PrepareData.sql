@@ -3,8 +3,10 @@ ALTER PROCEDURE [dbo].[VRModel_Sportsbook_Soccer_1_PrepareData]
 	,	@ToDate				DATE
 	,	@IsDeposit			BIT
 	,	@IsLive				BIT
+	,	@SportId			INT
 	,	@LeagueGroupId		SMALLINT
 	,	@LeagueId			INT
+	,	@BettypeGroupId		INT
 	,	@BettypeId			INT
 AS
 /*

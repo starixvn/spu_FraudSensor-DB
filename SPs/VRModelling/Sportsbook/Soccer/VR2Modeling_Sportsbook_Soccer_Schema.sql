@@ -1,6 +1,6 @@
 GO
 
-CREATE TABLE [dbo].[VR2Model_SoccerWeeklyData](
+CREATE TABLE [dbo].[SoccerWeeklyData](
 	[FromDate]			DATE NOT NULL,
 	[ToDate]			DATE NOT NULL,
 	[CustId]			INT NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE [dbo].[VR2Model_SoccerWeeklyData](
 	[RealWinloss]		MONEY NULL,
 	[BetCount]			INT NULL,
 	[IsDeposit]			BIT,
-	CONSTRAINT PK_VR2Model_SoccerWeeklyData PRIMARY KEY CLUSTERED (
+	CONSTRAINT PK_SoccerWeeklyData PRIMARY KEY CLUSTERED (
 		[FromDate]		ASC,
 		[ToDate]		ASC,
 		[IsDeposit]		ASC,
@@ -70,21 +70,6 @@ CREATE TABLE [dbo].[VR2Model_CustomerCumulativeInfo] (
 	,	[NumOfWeeksBet]	    INT
 	,	CONSTRAINT PK_VR2Model_CustomerCumulativeInfo PRIMARY KEY CLUSTERED(
 			[CustId]    ASC
-		)
-) ON [DATA]
-GO
-
-CREATE TABLE [dbo].[VR2Model_PlayersCumulative] (
-		[CustId]			INT NOT NULL
-	,	[LeagueId]			INT NOT NULL				
-	,	[BettypeId]			INT NOT NULL
-	,	[IsLive]			BIT NOT NULL
-	,	[CumulativeMargin]	FLOAT
-	,	CONSTRAINT PK_VR2Model_PlayersCumulative PRIMARY KEY CLUSTERED(
-			[CustId]      ASC,
-			[LeagueId]    ASC,
-			[BettypeId]   ASC,
-			[IsLive]      ASC
 		)
 ) ON [DATA]
 GO

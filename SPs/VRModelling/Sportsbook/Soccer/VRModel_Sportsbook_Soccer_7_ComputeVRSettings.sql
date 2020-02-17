@@ -36,7 +36,7 @@ BEGIN
 	);
 
 	INSERT INTO #tmpBettypes(BetType)
-	SELECT val FROM dbo.strSplit_Key(@Bettypes,',');
+	SELECT val FROM dbo.SPU_StrSplit(@Bettypes,',');
 
 	IF	OBJECT_ID('tempdb..#tmpLeagues') IS NOT NULL
 		DROP TABLE	#tmpLeagues;
@@ -46,28 +46,28 @@ BEGIN
 	);
 
 	INSERT INTO #tmpLeagues(LeagueId)
-	SELECT val FROM dbo.strSplit_Key(@Leagues,',');
+	SELECT val FROM dbo.SPU_StrSplit(@Leagues,',');
 
 	-- START
 	IF ((SELECT COUNT(1) FROM #tmpLeagues WITH(NOLOCK)) > 1)
-	BEGIN
-		SELECT @LeagueId = NULL, @BettypeId = NULL;
-	END
+		BEGIN
+			SELECT @LeagueId = NULL, @BettypeId = NULL;
+		END
 	ELSE
-	BEGIN
-		SELECT TOP (1) @LeagueId = LeagueId
-		FROM #tmpLeagues WITH(NOLOCK);
-	END;
+		BEGIN
+			SELECT TOP (1) @LeagueId = LeagueId
+			FROM #tmpLeagues WITH(NOLOCK);
+		END;
 
 	IF ((SELECT COUNT(1) FROM #tmpBettypes WITH(NOLOCK)) > 1)
-	BEGIN
-		SELECT @BettypeId = NULL;
-	END
+		BEGIN
+			SELECT @BettypeId = NULL;
+		END
 	ELSE
-	BEGIN
-		SELECT TOP (1) @BettypeId = Bettype
-		FROM #tmpBettypes WITH(NOLOCK);
-	END;
+		BEGIN
+			SELECT TOP (1) @BettypeId = Bettype
+			FROM #tmpBettypes WITH(NOLOCK);
+		END;
 	
 	INSERT INTO dbo.VR2Model_VirtualRate(
 			CustId

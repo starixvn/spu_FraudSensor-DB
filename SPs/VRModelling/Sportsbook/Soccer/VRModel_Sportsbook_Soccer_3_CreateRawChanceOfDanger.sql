@@ -23,12 +23,16 @@ BEGIN
 		,	w.NumOfWinner / (w.NumOfWinner + l.NumOfLoser)
 	FROM dbo.[VR2Model_WinnerByWeekCounter] AS w WITH(NOLOCK)
 		INNER JOIN dbo.[VR2Model_LoserByWeekCounter] AS l WITH(NOLOCK) ON w.MarginRange = l.MarginRange AND w.WeekOrder = l.WeekOrder
+
 	UNION
+
 	SELECT w.MarginRange, w.WeekOrder, 0.1
 	FROM dbo.[VR2Model_WinnerByWeekCounter] AS w WITH(NOLOCK)
 		LEFT JOIN dbo.[VR2Model_LoserByWeekCounter] AS l WITH(NOLOCK) ON w.MarginRange = l.MarginRange AND w.WeekOrder = l.WeekOrder
 	WHERE l.NumOfLoser IS NULL
+
 	UNION
+
 	SELECT l.MarginRange, l.WeekOrder, 0
 	FROM dbo.[VR2Model_WinnerByWeekCounter] AS w WITH(NOLOCK)
 		RIGHT JOIN dbo.[VR2Model_LoserByWeekCounter] AS l WITH(NOLOCK) ON w.MarginRange = l.MarginRange AND w.WeekOrder = l.WeekOrder

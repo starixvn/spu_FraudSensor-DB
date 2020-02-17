@@ -1,6 +1,6 @@
 GO
 
-CREATE TABLE [dbo].[SoccerWeeklyData](
+CREATE TABLE [dbo].[VR2Model_SoccerWeeklyData](
 	[FromDate]			DATE NOT NULL,
 	[ToDate]			DATE NOT NULL,
 	[CustId]			INT NOT NULL,
@@ -15,11 +15,11 @@ CREATE TABLE [dbo].[SoccerWeeklyData](
 	CONSTRAINT PK_VR2Model_SoccerWeeklyData PRIMARY KEY CLUSTERED (
 		[FromDate]		ASC,
 		[ToDate]		ASC,
-		[CustId]		ASC,
-		[SuperId]		ASC,
-		[BettypeId]		ASC,
+		[IsDeposit]		ASC,
+		[IsLive]		ASC,
 		[LeagueId]		ASC,
-		[IsLive]		ASC
+		[BettypeId]		ASC,
+		[CustId]		ASC
 	)
 ) ON [DATA]
 GO
@@ -32,7 +32,7 @@ CREATE TABLE [dbo].[VR2Model_StagingSoccerWeeklyData](
 	[SuperId]			INT NOT NULL,
 	[RealTurnover]		MONEY NULL,
 	[RealWinloss]		MONEY NULL,
-	CONSTRAINT PK_#tmpSoccerWeeklyData PRIMARY KEY CLUSTERED (
+	CONSTRAINT PK_VR2Model_StagingSoccerWeeklyData PRIMARY KEY CLUSTERED (
 		[FromDate]		ASC,
 		[ToDate]		ASC,
 		[CustId]		ASC,
@@ -55,12 +55,20 @@ CREATE TABLE [dbo].[VR2Model_CumulativeMarginByWeek] (
 ) ON [DATA]
 GO
 
+CREATE NONCLUSTERED INDEX [IX_VR2Model_CumulativeMarginByWeek_Margin] ON [dbo].[VR2Model_CumulativeMarginByWeek]
+(
+		[Margin]		ASC
+	,	[WeekOrder]		ASC
+)
+GO
+
+
 CREATE TABLE [dbo].[VR2Model_CustomerCumulativeInfo] (
 		[CustId]		    INT NOT NULL
 	,	[SuperId]			INT NOT NULL
 	,	[Margin]		    NUMERIC(1,1) NOT NULL
 	,	[NumOfWeeksBet]	    INT
-	,	CONSTRAINT PK_VR2Model_TotalCumuMarginByWeek PRIMARY KEY CLUSTERED(
+	,	CONSTRAINT PK_VR2Model_CustomerCumulativeInfo PRIMARY KEY CLUSTERED(
 			[CustId]    ASC
 		)
 ) ON [DATA]
@@ -79,10 +87,9 @@ CREATE TABLE [dbo].[VR2Model_PlayersCumulative] (
 			[IsLive]      ASC
 		)
 ) ON [DATA]
-
 GO
 
-CREATE TABLE [dbo].VR2Model_WinnerByWeekCounter (
+CREATE TABLE [dbo].[VR2Model_WinnerByWeekCounter] (
 		[MarginRange]		FLOAT NOT NULL
 	,	[WeekOrder]		    SMALLINT
 	,	[NumOfWinner]		INT
@@ -91,10 +98,9 @@ CREATE TABLE [dbo].VR2Model_WinnerByWeekCounter (
 			[WeekOrder]    ASC 
 		)
 ) ON [DATA]
-
 GO
 
-CREATE TABLE [dbo].VR2Model_LoserByWeekCounter (
+CREATE TABLE [dbo].[VR2Model_LoserByWeekCounter] (
 		[MarginRange]		FLOAT NOT NULL
 	,	[WeekOrder]		    SMALLINT
 	,	[NumOfLoser]		INT
@@ -103,10 +109,9 @@ CREATE TABLE [dbo].VR2Model_LoserByWeekCounter (
 			[WeekOrder]		ASC
 		)
 ) ON [DATA]
-
 GO
 
-CREATE TABLE [dbo].VR2Model_RawChanceOfDanger(
+CREATE TABLE [dbo].[VR2Model_RawChanceOfDanger](
 		[MarginRange]		FLOAT NOT NULL
 	,	[WeekOrder]			SMALLINT
 	,	[PercentageOfWin]	FLOAT
@@ -115,37 +120,33 @@ CREATE TABLE [dbo].VR2Model_RawChanceOfDanger(
 			[WeekOrder]     ASC
 		)
 ) ON [DATA]
-
 GO
 
-CREATE TABLE [dbo].VR2Model_HorizontalSlopeIntercept(
+CREATE TABLE [dbo].[VR2Model_HorizontalSlopeIntercept](
 		[MarginRange]	FLOAT 
 	,	[Slope]			FLOAT
 	,	[Intercept]		FLOAT
 	,   CONSTRAINT PK_VR2Model_HorizontalSlopeIntercept PRIMARY KEY CLUSTERED ([MarginRange])
 ) ON [DATA]
-
 GO
 
-CREATE TABLE [dbo].VR2Model_VerticalSlopeInterceptWinner(
+CREATE TABLE [dbo].[VR2Model_VerticalSlopeInterceptWinner](
 		[WeekOrder]		SMALLINT
 	,	[Slope]			FLOAT
 	,	[Intercept]		FLOAT
 	,	CONSTRAINT PK_VR2Model_VerticalSlopeInterceptWinner PRIMARY KEY CLUSTERED ([WeekOrder])
 ) ON [DATA]
-
 GO
 
-CREATE TABLE [dbo].VR2Model_VerticalSlopeInterceptLoser(
+CREATE TABLE [dbo].[VR2Model_VerticalSlopeInterceptLoser](
 		[WeekOrder]		SMALLINT
 	,	[Slope]			FLOAT
 	,	[Intercept]		FLOAT
 	,	CONSTRAINT PK_VR2Model_VerticalSlopeInterceptLoser PRIMARY KEY CLUSTERED ([WeekOrder])
 ) ON [DATA]
-
 GO
 
-CREATE TABLE [dbo].VR2Model_ChanceOfDangerSmoothHorizontal(
+CREATE TABLE [dbo].[VR2Model_ChanceOfDangerSmoothHorizontal](
 		[MarginRange]		FLOAT NOT NULL
 	,	[WeekOrder]			SMALLINT
 	,	[PercentageOfWin]	FLOAT
@@ -156,7 +157,7 @@ CREATE TABLE [dbo].VR2Model_ChanceOfDangerSmoothHorizontal(
 ) ON [DATA]
 GO
 
-CREATE TABLE [dbo].VR2Model_ChanceOfDangerSmoothVertical(
+CREATE TABLE [dbo].[VR2Model_ChanceOfDangerSmoothVertical](
 		[MarginRange]		FLOAT NOT NULL
 	,	[WeekOrder]			SMALLINT
 	,	[PercentageOfWin]	FLOAT
@@ -165,10 +166,9 @@ CREATE TABLE [dbo].VR2Model_ChanceOfDangerSmoothVertical(
 			[WeekOrder]     ASC
 		)
 ) ON [DATA]
-
 GO
 
-CREATE TABLE [dbo].VR2Model_ChanceOfDanger(
+CREATE TABLE [dbo].[VR2Model_ChanceOfDanger](
 		[MarginRange]		FLOAT NOT NULL
 	,	[WeekOrder]			SMALLINT
 	,	[PercentageOfWin]	FLOAT
@@ -177,14 +177,12 @@ CREATE TABLE [dbo].VR2Model_ChanceOfDanger(
 			[WeekOrder]    ASC
 		)
 ) ON [DATA]
-
 GO
 
-CREATE TABLE [dbo].VR2Model_LicenseeModifier(
+CREATE TABLE [dbo].[VR2Model_LicenseeModifier](
 		[SuperId]			INT NOT NULL PRIMARY KEY
 	,	[PercentageOfWin]	FLOAT
 ) ON [DATA]
-
 GO
 
 CREATE TABLE [dbo].[VR2Model_VirtualRate] (
@@ -209,5 +207,4 @@ CREATE TABLE [dbo].[VR2Model_VirtualRate] (
 			[BettypeId]			ASC
 		)
 ) ON [DATA]
-
 GO

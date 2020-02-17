@@ -28,28 +28,6 @@ BEGIN
 	DECLARE @Settings_MinBetCount	INT	= 1
 		,	@Settings_MinBet		MONEY = 499;
 
-	IF	OBJECT_ID('tempdb..#tmpSoccerWeeklyData') IS NOT NULL
-	BEGIN
-		DROP TABLE #tmpSoccerWeeklyData;
-	END;
-
-	CREATE TABLE #tmpSoccerWeeklyData(
-		[FromDate]			DATE NOT NULL,
-		[ToDate]			DATE NOT NULL,
-		[WeekOrder]			INT NOT NULL,
-		[CustId]			INT NOT NULL,
-		[SuperId]			INT NOT NULL,
-		[RealTurnover]		MONEY NULL,
-		[RealWinloss]		MONEY NULL,
-		CONSTRAINT PK_#tmpSoccerWeeklyData PRIMARY KEY CLUSTERED (
-			[FromDate]		ASC,
-			[ToDate]		ASC,
-			[CustId]		ASC,
-			[SuperId]		ASC,
-			[WeekOrder]		ASC
-		)
-	);
-
 	IF	OBJECT_ID('tempdb..#tmpBettypes') IS NOT NULL
 		DROP TABLE	#tmpBettypes;
 
@@ -58,7 +36,7 @@ BEGIN
 	);
 
 	INSERT INTO #tmpBettypes(BetType)
-	SELECT val FROM dbo.strSplit_Key(@Bettypes,',');
+	SELECT val FROM dbo.SPU_StrSplit(@Bettypes,',');
 
 	IF	OBJECT_ID('tempdb..#tmpLeagues') IS NOT NULL
 		DROP TABLE	#tmpLeagues;
@@ -68,20 +46,22 @@ BEGIN
 	);
 
 	INSERT INTO #tmpLeagues(LeagueId)
-	SELECT val FROM dbo.strSplit_Key(@Leagues,',');
+	SELECT val FROM dbo.SPU_StrSplit(@Leagues,',');
 
 	-- START
+	TRUNCATE TABLE dbo.[VR2Model_StagingSoccerWeeklyData];
 	TRUNCATE TABLE dbo.[VR2Model_CumulativeMarginByWeek];
 	TRUNCATE TABLE dbo.[VR2Model_CustomerCumulativeInfo];
 
-	INSERT INTO #tmpSoccerWeeklyData(FromDate, ToDate, CustId, SuperId, RealTurnover, RealWinloss)
+	INSERT INTO dbo.VR2Model_StagingSoccerWeeklyData(FromDate, ToDate, CustId, SuperId, RealTurnover, RealWinloss, WeekOrder)
 	SELECT	w.FromDate
 		,	w.ToDate
 		,	w.CustId
 		,	w.SuperId
 		,	w.RealTurnover
-		,	w.RealWinloss
-	FROM dbo.[VR2Model_SoccerWeeklyData] AS w WITH(NOLOCK)
+		,	w.RealWinloss		
+		,	ROW_NUMBER() OVER(PARTITION BY w.CustId ORDER BY w.FromDate ASC)
+	FROM dbo.[SoccerWeeklyData] AS w WITH(NOLOCK)
 		INNER JOIN #tmpBettypes AS b WITH(NOLOCK) ON w.BettypeId = b.Bettype
 		INNER JOIN #tmpLeagues AS l WITH(NOLOCK) ON w.LeagueId = l.LeagueId
 	WHERE w.FromDate >= @FromDate AND w.ToDate <= @ToDate
@@ -90,21 +70,17 @@ BEGIN
 		AND w.BetCount > @Settings_MinBetCount
 		AND w.RealTurnover > @Settings_MinBet;
 
-	UPDATE t WITH(ROWLOCK, UPDLOCK)
-	SET t.WeekOrder = ROW_NUMBER() OVER(PARTITION BY t.CustId ORDER BY t.FromDate ASC)
-	FROM #tmpSoccerWeeklyData AS t;
-
 	;WITH rs AS
 	(
 		SELECT	t.CustId, t.SuperId, t.WeekOrder, t.RealTurnover, t.RealWinloss
-		FROM #tmpSoccerWeeklyData AS t WITH(NOLOCK)
+		FROM dbo.VR2Model_StagingSoccerWeeklyData AS t WITH(NOLOCK)
 		WHERE t.WeekOrder = 1
 
 		UNION ALL
 
 		SELECT	t1.CustId, t1.SuperId, t1.WeekOrder, t1.RealTurnover + rs.RealTurnover,  t1.RealWinloss + rs.RealWinloss
 		FROM rs 
-			INNER JOIN #tmpSoccerWeeklyData AS t1 WITH(NOLOCK) ON rs.CustId = t1.CustId AND t1.WeekOrder = rs.WeekOrder + 1
+			INNER JOIN dbo.VR2Model_StagingSoccerWeeklyData AS t1 WITH(NOLOCK) ON rs.CustId = t1.CustId AND t1.WeekOrder = rs.WeekOrder + 1
 	)
 	INSERT INTO dbo.[VR2Model_CumulativeMarginByWeek](CustId, SuperId, WeekOrder, Margin)
 	SELECT	CustId

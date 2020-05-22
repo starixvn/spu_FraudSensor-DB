@@ -19,7 +19,7 @@ CREATE TABLE [dbo].[ScanningMatch](
 	,	[FraudCaseId]		TINYINT NOT NULL
     ,	[EventDate]			DATE NOT NULL
     ,	[KickOffTime]		DATETIME NOT NULL
-    ,	[FromTransId]		BIGINT NOT NULL
+    ,	[FromTransId]		BIGINT NULL
     ,	[EventStatus]		NVARCHAR(50)
     ,	[IsScanCompleted]	BIT DEFAULT(0)
 	,	CONSTRAINT [PK_ScanningMatch] PRIMARY KEY CLUSTERED 

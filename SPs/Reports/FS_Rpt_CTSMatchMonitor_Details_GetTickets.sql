@@ -38,8 +38,30 @@ BEGIN
 		,	SiteId		INT
 		,	SiteName	NVARCHAR(50)
 	 );
+
+	 IF OBJECT_ID('tempdb..#tmpMatchInfo') IS NOT NULL
+	BEGIN
+		DROP TABLE	#tmpMatchInfo;
+	END;
+	
+	CREATE TABLE #tmpMatchInfo (
+			MatchId				INT PRIMARY KEY
+		,	LiveHomeScore		INT
+		,	LiveAwayScore		INT
+		,	SecondHalf75thMin	DATETIME
+	 );
 	
 	-- START
+	-- Get match info
+	INSERT INTO #tmpMatchInfo(MatchId, LiveHomeScore, LiveAwayScore, SecondHalf75thMin)
+	SELECT	m.matchid
+		,	m.livehomescore
+		,	m.liveawayscore
+		,	DATEADD(MINUTE, 30, s.CreateTime )
+	FROM bodb02.dbo.match AS m WITH(NOLOCK)
+		INNER JOIN DBPRO.bodb02.dbo.Match_ExtraStatus AS s WITH(NOLOCK) ON m.matchid = s.MatchId AND s.GameStatusID = 3
+	WHERE m.matchid = @MatchId;
+
 	-- Get suspicious customers
 	INSERT INTO #tmpCustomerSite(CustId)
 	SELECT DISTINCT si.CustId
@@ -107,10 +129,14 @@ BEGIN
 		,	b.status AS TicketStatus
 		,	ISNULL(b.IP,'')		AS [IP]
 		,	b.currencyname		AS CurrencyName
+		,	CASE WHEN (b.transdate > m.SecondHalf75thMin) THEN 2 -- Ticket bet after 75th minute
+				WHEN (b.livehomescore <> m.livehomescore OR b.liveawayscore <> m.liveawayscore) THEN 1 -- Different goal score
+				ELSE 0 END AS HighlightStatus -- Normal case
 	FROM bodb02.dbo.bettrans AS b WITH(NOLOCK)
 		INNER JOIN #tmpFraudTickets AS f WITH(NOLOCK) ON b.transid = f.TransID
 		INNER JOIN bodb02.dbo.bettype AS bt WITH(NOLOCK) ON b.bettype = bt.typeid
-		INNER JOIN #tmpCustomerSite AS s WITH(NOLOCK) ON b.custid = s.CustId;
+		INNER JOIN #tmpCustomerSite AS s WITH(NOLOCK) ON b.custid = s.CustId
+		INNER JOIN #tmpMatchInfo as m WITH(NOLOCK) ON b.matchid = m.matchid;
 END;
 
 GO

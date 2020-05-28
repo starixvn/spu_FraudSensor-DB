@@ -26,6 +26,7 @@ AS
 		- 20190506@John.Ngo: Check Bet case only need to check the Rejected status if changed [Redmine ID: #111067]
 		- 20190515@Long.Luu: Cashout tickets are not inserted into bets table [Redmine ID: #113400]
 		- 20190814@Long.Luu: Do not comparing Odds in case of ScoreBox tickets [Redmine ID: #118525]
+		- 20200528@Long.Luu: Change rule for detecting Cashout tickets [Redmine ID: #134977]
 		 
 	Param's Explanation (filtered by):
 */
@@ -297,7 +298,7 @@ BEGIN
 			INNER JOIN #tmpMatches m  WITH(NOLOCK) ON bt.matchid = m.matchid
 		WHERE m.WinlossDate = @WinlossDate
 			AND bt.currency NOT IN (20, 27, 28)
-			AND CAST(ExtraInfo AS XML).exist('/p25/@s') = 1
+			AND CAST(ExtraInfo AS XML).exist('/p25') = 1
 			AND bt.betdaqid = 0;
                 
 		IF EXISTS (SELECT TOP(1) 1 FROM #tmpCheckBet WITH(NOLOCK))

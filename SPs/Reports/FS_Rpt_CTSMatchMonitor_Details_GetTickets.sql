@@ -57,9 +57,9 @@ BEGIN
 	SELECT	m.matchid
 		,	m.livehomescore
 		,	m.liveawayscore
-		,	DATEADD(MINUTE, 30, s.CreateTime )
+		,	CASE WHEN s.MatchId IS NULL THEN '9999-12-31' ELSE DATEADD(MINUTE, 30, s.CreateTime ) END
 	FROM bodb02.dbo.match AS m WITH(NOLOCK)
-		INNER JOIN DBPRO.bodb02.dbo.Match_ExtraStatus AS s WITH(NOLOCK) ON m.matchid = s.MatchId AND s.GameStatusID = 3
+		LEFT JOIN DBPRO.bodb02.dbo.Match_ExtraStatus AS s WITH(NOLOCK) ON m.matchid = s.MatchId AND s.GameStatusID = 3
 	WHERE m.matchid = @MatchId;
 
 	-- Get suspicious customers
@@ -127,6 +127,7 @@ BEGIN
 				ELSE 0
 				END) AS Winlost
 		,	b.status AS TicketStatus
+		,	b.statusID AS TicketStatusId
 		,	ISNULL(b.IP,'')		AS [IP]
 		,	b.currencyname		AS CurrencyName
 		,	CASE WHEN (b.transdate > m.SecondHalf75thMin) THEN 2 -- Ticket bet after 75th minute

@@ -15,6 +15,7 @@ AS
 
 	Revisions:
 		- 20200519@Long.Luu: Created [Redmine ID: #133798]
+		- 20200603@Long.Luu: Update linked server [Redmine ID: #133798]
 
 	Param's Explanation (filtered by):
 */
@@ -118,8 +119,8 @@ BEGIN
 	-- Get AI Ghost Accounts
 	INSERT INTO #tmpDangerousCustomer(CustId)
 	SELECT a.CustId
-	--FROM DBONUSER.ON_USER.dbo.AbnormalUsers AS a WITH(NOLOCK)
-	FROM ON_USER.dbo.AbnormalUsers AS a WITH(NOLOCK)
+	FROM DBONUSER.ON_USER.dbo.AbnormalUsers AS a WITH(NOLOCK)
+	--FROM ON_USER.dbo.AbnormalUsers AS a WITH(NOLOCK)
 	WHERE (flags & 4) = 4;
 
 	-- Insert flagged accounts	

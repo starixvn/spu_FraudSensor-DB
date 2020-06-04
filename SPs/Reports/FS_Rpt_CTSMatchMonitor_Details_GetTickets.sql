@@ -57,10 +57,13 @@ BEGIN
 	SELECT	m.matchid
 		,	m.livehomescore
 		,	m.liveawayscore
-		,	CASE WHEN s.MatchId IS NULL THEN '9999-12-31' ELSE DATEADD(MINUTE, 30, s.CreateTime ) END
+		,	MAX(CASE WHEN s.MatchId IS NULL THEN '9999-12-31' ELSE DATEADD(MINUTE, 30, s.CreateTime ) END)
 	FROM bodb02.dbo.match AS m WITH(NOLOCK)
 		LEFT JOIN DBPRO.bodb02.dbo.Match_ExtraStatus AS s WITH(NOLOCK) ON m.matchid = s.MatchId AND s.GameStatusID = 3
-	WHERE m.matchid = @MatchId;
+	WHERE m.matchid = @MatchId
+	GROUP BY m.matchid
+		,	m.livehomescore
+		,	m.liveawayscore;
 
 	-- Get suspicious customers
 	INSERT INTO #tmpCustomerSite(CustId)

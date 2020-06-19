@@ -7,6 +7,11 @@ GO
 ALTER PROCEDURE [dbo].[FS_Rpt_CTSMatchMonitor_Details_GetTickets]
 		@MatchId					INT
 	,	@FraudCaseId				INT	
+	,	@SiteId						INT = 0
+	,	@BettypeId					SMALLINT = 0
+	,	@CurrencyId					TINYINT = 0
+	,	@StakeFrom					MONEY = 0
+	,	@StakeTo					MONEY = 0
 AS
 /*
 	Created: 20200520@Long.Luu
@@ -132,6 +137,7 @@ BEGIN
 		,	b.status AS TicketStatus
 		,	b.statusID AS TicketStatusId
 		,	ISNULL(b.IP,'')		AS [IP]
+		,	b.currency			AS CurrencyId
 		,	b.currencyname		AS CurrencyName
 		,	CASE WHEN (b.transdate > m.SecondHalf75thMin) THEN 2 -- Ticket bet after 75th minute
 				WHEN (b.livehomescore <> m.livehomescore OR b.liveawayscore <> m.liveawayscore) THEN 1 -- Different goal score
@@ -140,7 +146,11 @@ BEGIN
 		INNER JOIN #tmpFraudTickets AS f WITH(NOLOCK) ON b.transid = f.TransID
 		INNER JOIN bodb02.dbo.bettype AS bt WITH(NOLOCK) ON b.bettype = bt.typeid
 		INNER JOIN #tmpCustomerSite AS s WITH(NOLOCK) ON b.custid = s.CustId
-		INNER JOIN #tmpMatchInfo as m WITH(NOLOCK) ON b.matchid = m.matchid;
+		INNER JOIN #tmpMatchInfo as m WITH(NOLOCK) ON b.matchid = m.matchid
+	WHERE (@SiteId = 0 OR s.SiteId = @SiteId)
+		AND (@CurrencyId = 0 OR b.currency = @CurrencyId)
+		AND (@BettypeId = 0 OR b.bettype = @BettypeId)
+		AND (@StakeTo = 0 OR (b.stake >= @StakeFrom AND b.stake <= @StakeTo));
 END;
 
 GO

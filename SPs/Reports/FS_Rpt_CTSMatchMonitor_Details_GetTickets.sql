@@ -7,7 +7,7 @@ GO
 ALTER PROCEDURE [dbo].[FS_Rpt_CTSMatchMonitor_Details_GetTickets]
 		@MatchId					INT
 	,	@FraudCaseId				INT	
-	,	@SiteId						INT = 0
+	,	@SiteIds					NVARCHAR(MAX) = ''
 	,	@BettypeId					SMALLINT = 0
 	,	@CurrencyId					TINYINT = 0
 	,	@StakeFrom					MONEY = 0
@@ -21,9 +21,13 @@ AS
 
 	Revisions:
 		- 20200520@Long.Luu: Created [Redmine ID: #133798]
+		- 20200620@Long.Luu: Add more filters to the report [Redmine ID: #135609]
 */
 BEGIN
 	SET NOCOUNT ON;
+
+	DECLARE @tbSite AS TABLE (SiteId INT);
+
 	IF OBJECT_ID('tempdb..#tmpFraudTickets') IS NOT NULL
 	BEGIN
 		DROP TABLE	#tmpFraudTickets;
@@ -105,8 +109,13 @@ BEGIN
 	WHERE si.MatchId = @MatchId
 		AND si.FraudCaseId = @FraudCaseId
 		AND (c.CurrencyId NOT IN (SELECT CurrencyId FROM dbo.SpecialCurrency WITH(NOLOCK)));
-			
-	--===	2.2 GET: Homeid and AwayId
+	
+	
+	-- GET Sites
+	INSERT INTO @tbSite(SiteId)
+	SELECT val FROM SPU_StrSplit(@SiteIds, ',');
+
+	-- GET: Homeid and AwayId
 	DECLARE @homeId INT;
 	DECLARE @awayId INT;
 			
@@ -147,7 +156,8 @@ BEGIN
 		INNER JOIN bodb02.dbo.bettype AS bt WITH(NOLOCK) ON b.bettype = bt.typeid
 		INNER JOIN #tmpCustomerSite AS s WITH(NOLOCK) ON b.custid = s.CustId
 		INNER JOIN #tmpMatchInfo as m WITH(NOLOCK) ON b.matchid = m.matchid
-	WHERE (@SiteId = 0 OR s.SiteId = @SiteId)
+	WHERE b.statusid = 0
+		AND (@SiteIds = '' OR s.SiteId IN (SELECT SiteId FROM @tbSite))
 		AND (@CurrencyId = 0 OR b.currency = @CurrencyId)
 		AND (@BettypeId = 0 OR b.bettype = @BettypeId)
 		AND (@StakeTo = 0 OR (b.stake >= @StakeFrom AND b.stake <= @StakeTo));

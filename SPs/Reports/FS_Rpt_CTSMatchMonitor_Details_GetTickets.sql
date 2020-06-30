@@ -124,43 +124,43 @@ BEGIN
 	FROM bodb02.dbo.match m WITH(NOLOCK)
 	WHERE m.matchid = @MatchId;
 			
-	SELECT	b.Username			AS Username
-		,	s.SiteId			AS SiteId
-		,	s.SiteName			AS SiteName
-		,	b.bettype			AS BettypeId
-		,	bt.typenamee		AS BettypeName
-		,	b.Transid			AS TransId
-		,	b.transdate			AS TransDate
-		,	b.betteam			AS BetTeam
-		,	b.hdp1				AS Handicap1
-		,	b.hdp2				AS Handicap2
-		,	ISNULL(b.livehomescore,0) AS LiveHomeScore
-		,	ISNULL(b.liveawayscore,0) AS LiveAwayScore
-		,	b.liveindicator		AS LiveIndicator
-		,	b.odds				AS Odds
-		,	b.oddstype			AS OddsType
-		,	b.stake				AS Stake
-		,	(CASE WHEN b.statusID IN (111,112,113) THEN (b.winlost - b.actual_stake )
+	SELECT	b.custid					AS CustId
+		,	b.Username					AS Username
+		,	s.SiteId					AS SiteId
+		,	s.SiteName					AS SiteName
+		,	b.bettype					AS BettypeId
+		,	bt.typenamee				AS BettypeName
+		,	b.Transid					AS TransId
+		,	b.transdate					AS TransDate
+		,	b.betteam					AS BetTeam
+		,	b.hdp1						AS Handicap1
+		,	b.hdp2						AS Handicap2
+		,	ISNULL(b.livehomescore,0)	AS LiveHomeScore
+		,	ISNULL(b.liveawayscore,0)	AS LiveAwayScore
+		,	b.liveindicator				AS LiveIndicator
+		,	b.odds						AS Odds
+		,	b.oddstype					AS OddsType
+		,	b.stake * b.actualrate		AS Stake
+		,	(CASE WHEN b.statusID IN (111,112,113) THEN (b.winlost - b.actual_stake) * b.actualrate
 				ELSE 0
-				END) AS Winlost
-		,	b.status AS TicketStatus
-		,	b.statusID AS TicketStatusId
-		,	ISNULL(b.IP,'')		AS [IP]
-		,	b.currency			AS CurrencyId
-		,	b.currencyname		AS CurrencyName
+				END)					AS Winlost
+		,	b.status					AS TicketStatus
+		,	b.statusID					AS TicketStatusId
+		,	ISNULL(b.IP,'')				AS [IP]
+		,	b.currency					AS CurrencyId
+		,	b.currencyname				AS CurrencyName
 		,	CASE WHEN (b.transdate > m.SecondHalf75thMin) THEN 2 -- Ticket bet after 75th minute
 				WHEN (b.livehomescore <> m.livehomescore OR b.liveawayscore <> m.liveawayscore) THEN 1 -- Different goal score
-				ELSE 0 END AS HighlightStatus -- Normal case
+				ELSE 0 END				AS HighlightStatus -- Normal case
 	FROM bodb02.dbo.bettrans AS b WITH(NOLOCK)
 		INNER JOIN #tmpFraudTickets AS f WITH(NOLOCK) ON b.transid = f.TransID
 		INNER JOIN bodb02.dbo.bettype AS bt WITH(NOLOCK) ON b.bettype = bt.typeid
 		INNER JOIN #tmpCustomerSite AS s WITH(NOLOCK) ON b.custid = s.CustId
 		INNER JOIN #tmpMatchInfo as m WITH(NOLOCK) ON b.matchid = m.matchid
-	WHERE b.statusid = 0
-		AND (@SiteIds = '' OR s.SiteId IN (SELECT SiteId FROM @tbSite))
+	WHERE (@SiteIds = '' OR s.SiteId IN (SELECT SiteId FROM @tbSite))
 		AND (@CurrencyId = 0 OR b.currency = @CurrencyId)
 		AND (@BettypeId = 0 OR b.bettype = @BettypeId)
-		AND (@StakeTo = 0 OR (b.stake >= @StakeFrom AND b.stake <= @StakeTo));
+		AND (@StakeTo = 0 OR ((b.stake * b.actualrate) >= @StakeFrom AND (b.stake * b.actualrate) <= @StakeTo));
 END;
 
 GO

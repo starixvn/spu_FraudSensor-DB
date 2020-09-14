@@ -21,6 +21,7 @@ AS
 		- 20190322@Long.Luu:	Exclude Internal Accounts from Office IP Scanning [Redmine ID: 107865]
 		- 20190503@Long.Luu:	Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
 		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead [Redmine ID: 115326]
+		- 20190914@Long.Luu:	Exclude IPv6 tickets from scanning [Redmine ID: 141593]
 
 	Param's Explanation (filtered by):
 
@@ -126,7 +127,7 @@ BEGIN
 			INNER JOIN #tmpMatchInput AS mi WITH (NOLOCK) ON mi.matchid = b.MatchId
 			INNER JOIN #tmpBettype AS bt WITH (NOLOCK) ON b.bettype = bt.Bettype
 			INNER JOIN dbo.OfficeIP AS oi WITH (NOLOCK) ON b.ip LIKE ''+ oi.IPRange +'.%' AND (CAST(PARSENAME(b.ip, 1) AS SMALLINT) BETWEEN oi.FromNumber AND oi.ToNumber)
-	WHERE	b.currency NOT IN (20, 27, 28)	
+	WHERE	b.currency NOT IN (20, 27, 28) AND b.ip NOT LIKE '%:%'
 	OPTION (MAXDOP 1);
 
 	--===4-plus. REMOVE INTERNAL ACCOUNT FROM #tmpFraudTickets

@@ -3,13 +3,15 @@ Creator: 20200928@Long
 Task: Clean data for Fraud Sensor
 Server:  bodb_FraudSensor
 Revision:
-
+		- 20200928@Long: Clean data [Redmine ID: 142465]
 Reviewer: Patrick
 */ 
 
 USE bodb_FraudSensor;
 
 -- Customer Daily
+-- First step: stop the job FS-CustomerTicketCountDaily
+-- and then
 TRUNCATE TABLE dbo.SummaryByCustomer_Daily;
 
 -- Scanned Matches

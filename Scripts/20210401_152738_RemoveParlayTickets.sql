@@ -16,4 +16,5 @@ GO
 DELETE FROM dbo.[ChangedTicketGeneralInfo] WITH(ROWLOCK, UPDLOCK)
 WHERE TransId IN (111472969043,111473759415,111473524430);
 GO
+
 /*<info serverAlias="DBFS-bodb_FraudSensor"></info>*/

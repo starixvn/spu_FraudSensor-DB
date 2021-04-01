@@ -27,6 +27,7 @@ AS
 		- 20190515@Long.Luu: Cashout tickets are not inserted into bets table [Redmine ID: #113400]
 		- 20190814@Long.Luu: Do not comparing Odds in case of ScoreBox tickets [Redmine ID: #118525]
 		- 20200528@Long.Luu: Change rule for detecting Cashout tickets [Redmine ID: #134977]
+		- 20210401@Long.Luu: Remove bettype 29 (System Parlay) & 38 (Single System Parlay) [Redmine ID: #152738]
 		 
 	Param's Explanation (filtered by):
 */

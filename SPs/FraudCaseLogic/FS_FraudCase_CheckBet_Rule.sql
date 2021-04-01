@@ -184,23 +184,24 @@ BEGIN
 		@CapturedDate				= GETDATE();
 
 	--SELECT SportType and Bettype of SB
-	INSERT INTO #tmpSportbooksBettype(Bettype, EventType, SubProduct)
+	INSERT	INTO #tmpSportbooksBettype(Bettype, EventType, SubProduct)
     SELECT	Bettype,
 			EventType,
 			SubProduct
     FROM	bodb02.dbo.f_SportBettypeMatrix_Sel(1, 0, 0, 2, '', '', 0)
     WHERE	ProductID = 1;
 
-	DELETE #tmpSportbooksBettype WITH(ROWLOCK)
-    WHERE SubProduct IN ( 'BT-Sold','BT-Bought','BT-Comm', 'BT-Winloss', 'MG-SuperLive');
+	DELETE	#tmpSportbooksBettype WITH(ROWLOCK)
+    WHERE	Bettype IN (29,38)
+		OR	SubProduct IN ( 'BT-Sold','BT-Bought','BT-Comm', 'BT-Winloss', 'MG-SuperLive');
 
-	INSERT INTO #tmpSportbooksSportType(SportType)
+	INSERT	INTO #tmpSportbooksSportType(SportType)
     SELECT	DISTINCT sporttype		 
     FROM	bodb02.dbo.SportBettypeMatrix WITH(NOLOCK)
     WHERE	ProductID = 1;
 
 	--SELECT completed matches to scanned
-	INSERT INTO #tmpMatchesInfo(WinlossDate, MatchId, HomeId, AwayId)
+	INSERT	INTO #tmpMatchesInfo(WinlossDate, MatchId, HomeId, AwayId)
 	SELECT	m.eventdate, m.matchid, m.homeid, m.awayid
 	FROM	bodb02.dbo.match m WITH(NOLOCK)
 			INNER JOIN #tmpSportbooksSportType s WITH(NOLOCK) ON m.sporttype = s.SportType

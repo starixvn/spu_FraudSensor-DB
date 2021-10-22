@@ -28,6 +28,7 @@ AS
 		- 20190814@Long.Luu: Do not comparing Odds in case of ScoreBox tickets [Redmine ID: #118525]
 		- 20200528@Long.Luu: Change rule for detecting Cashout tickets [Redmine ID: #134977]
 		- 20210401@Long.Luu: Remove bettype 29 (System Parlay) & 38 (Single System Parlay) [Redmine ID: #152738]
+		- 20211021@Long.Luu: Remove special Bettypes 376 (Penalty Shootout Combo (First 10)),468 (Score Box Handicap),469 (Score Box Over/Under) [Redmine ID: #163488]
 		 
 	Param's Explanation (filtered by):
 */
@@ -193,7 +194,7 @@ BEGIN
     WHERE	ProductID = 1;
 
 	DELETE	#tmpSportbooksBettype WITH(ROWLOCK)
-    WHERE	Bettype IN (29,38)
+    WHERE	Bettype IN (29,38,376,468,469)
 		OR	SubProduct IN ( 'BT-Sold','BT-Bought','BT-Comm', 'BT-Winloss', 'MG-SuperLive');
 
 	INSERT	INTO #tmpSportbooksSportType(SportType)

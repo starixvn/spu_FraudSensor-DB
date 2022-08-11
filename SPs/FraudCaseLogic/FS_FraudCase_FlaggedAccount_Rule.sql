@@ -1,8 +1,3 @@
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
 ALTER PROCEDURE [dbo].[FS_FraudCase_FlaggedAccount_Rule] 
 		@MatchIds				VARCHAR(MAX) = NULL
 	,	@FlaggedAccountsXML		VARCHAR(MAX)
@@ -24,6 +19,7 @@ AS
 		- 20190410@Casey.Huynh: Implement, update hasscanned = 1 for deleted Matches [Redmine ID: 111454]
 		- 20190503@Long.Luu:	Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
 		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead [Redmine ID: 115326]
+		- 20220810@John.Ngo:	FS - Scale Out DBTrans [Redmine ID: #176471]
 
 	Param's Explanation (filtered by):
 */
@@ -164,7 +160,7 @@ BEGIN
 			,	[EventDate]			= ft.EventDate
 			,	[FraudCaseId]		= @CurrentFraudCaseId
 			,	[SuspiciousDate]	= GETDATE()
-			,	[TransIds]			= STUFF((SELECT ',', CONVERT(VARCHAR(15), t1.TransId) 
+			,	[TransIds]			= STUFF((SELECT ',', CONVERT(VARCHAR(20), t1.TransId) 
 										 FROM #tmpFraudTickets AS t1 WITH (NOLOCK)
 										 WHERE t1.CustId = ft.CustId AND t1.MatchId = ft.MatchId 
 										 FOR XML PATH('')), 1, 1, '')

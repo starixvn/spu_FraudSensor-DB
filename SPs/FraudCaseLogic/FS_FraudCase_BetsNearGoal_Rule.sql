@@ -1,9 +1,3 @@
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-
 ALTER PROCEDURE [dbo].[FS_FraudCase_BetsNearGoal_Rule] 
 	@MatchIds VARCHAR(MAX) = NULL
 AS
@@ -21,6 +15,7 @@ AS
 		- 20190503@Long.Luu: Fix the buffer issue with "big" Fraud Cases [Redmine ID: 112706]
 		- 20190604@John.Ngo: Modify fraud case rules of Bet Neal the Goal [Redmine ID: 114438]
 		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead [Redmine ID: 115326]
+		- 20220810@John.Ngo:	FS - Scale Out DBTrans [Redmine ID: #176471]
 
 	Param's Explanation (filtered by):
 */
@@ -138,7 +133,7 @@ BEGIN
 			,	[FraudCaseId]		= @CurrentFraudCaseId
 			,	[SuspiciousDate]	= @ScannedDate
 			,	[TransIds]			=	(
-											STUFF((SELECT ',', CONVERT(VARCHAR(15), t1.TransId) 
+											STUFF((SELECT ',', CONVERT(VARCHAR(20), t1.TransId) 
 											FROM #tmpFraudTickets AS t1 WITH(NOLOCK)
 											WHERE t1.CustId = ft.CustId AND t1.MatchId = ft.MatchId 
 											FOR XML PATH('')), 1, 1, '')

@@ -1,8 +1,3 @@
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
 ALTER PROCEDURE [dbo].[FS_FraudCase_Hedging_Rule] 
 		@MatchIds					VARCHAR(MAX) = NULL
 	,	@HedgingAccountsXML			VARCHAR(MAX)
@@ -14,8 +9,9 @@ AS
 	Original:
 
 	Revisions:
-		- 20200519@Long.Luu: Created [Redmine ID: #133798]
-		- 20200603@Long.Luu: Update linked server [Redmine ID: #133798]
+		- 20200519@Long.Luu: 	Created [Redmine ID: #133798]
+		- 20200603@Long.Luu: 	Update linked server [Redmine ID: #133798]
+		- 20220810@John.Ngo:	FS - Scale Out DBTrans [Redmine ID: #176471]
 
 	Param's Explanation (filtered by):
 */
@@ -201,7 +197,7 @@ BEGIN
 			,	[EventDate]			= ft.EventDate
 			,	[FraudCaseId]		= @CurrentFraudCaseId
 			,	[SuspiciousDate]	= GETDATE()
-			,	[TransIds]			= STUFF((SELECT ',', CONVERT(VARCHAR(15), t1.TransId) 
+			,	[TransIds]			= STUFF((SELECT ',', CONVERT(VARCHAR(20), t1.TransId) 
 										 FROM #tmpFraudTickets AS t1 WITH (NOLOCK)
 										 WHERE t1.CustId = ft.CustId AND t1.MatchId = ft.MatchId 
 										 FOR XML PATH('')), 1, 1, '')

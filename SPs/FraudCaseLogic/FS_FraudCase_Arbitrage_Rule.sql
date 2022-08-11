@@ -1,7 +1,3 @@
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
 ALTER PROCEDURE [dbo].[FS_FraudCase_Arbitrage_Rule] 
 		@Matches			VARCHAR(MAX) = NULL -- xml format
 	,	@Associations		VARCHAR(MAX) = NULL -- xml format
@@ -28,6 +24,7 @@ AS
 		- 20190509@Casey.Huynh:	Trace Log Info [Redmine ID: 110672]
 		- 20190509@Casey.Huynh:	Fix Issue Performance when Update/Insert Scanned Match [Redmine ID: 110672]
 		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead & Remove Trace Log [Redmine ID: 115326]
+		- 20220810@John.Ngo:	FS - Scale Out DBTrans [Redmine ID: #176471]
 
 	Param's Explanation (filtered by):
 */
@@ -485,7 +482,7 @@ BEGIN
 			,	[Handicap]			= ft.Handicap
 			,	[LiveHomeScore]		= ft.LiveHomeScore
 			,	[LiveAwayScore]		= ft.LiveAwayScore
-			,	[TransIds]			= STUFF((SELECT ',', CONVERT(VARCHAR(15), t1.TransId) 
+			,	[TransIds]			= STUFF((SELECT ',', CONVERT(VARCHAR(20), t1.TransId) 
 											FROM #tmpFraudTickets AS t1 WITH(NOLOCK)
 											WHERE t1.MatchId = ft.MatchId AND t1.BetType = ft.BetType AND t1.Handicap = ft.Handicap 
 												AND t1.LiveHomeScore = ft.LiveHomeScore AND t1.LiveAwayScore = ft.LiveAwayScore 

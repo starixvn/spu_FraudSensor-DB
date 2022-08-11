@@ -22,6 +22,7 @@ AS
 		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead [Redmine ID: 115326]
 		- 20190925@Long.Luu:	Change seconds to the goal [Redmine ID: 120881]
 		- 20191031@Long.Luu:	Exclude LOSE tickets from scanning [Redmine ID: 123027]
+		- 20220810@John.Ngo:	FS - Scale Out DBTrans [Redmine ID: #176471]
 
 	Param's Explanation (filtered by):
 */
@@ -117,14 +118,15 @@ BEGIN
 	INNER JOIN	bodb02.dbo.Match m WITH (NOLOCK) ON ms.MatchId = m.MatchId; 	
 	
 	--- GET THE LAST REJECT TIME OF PREVIOUS SCORE	
-	
+	-- old TransId = hardcode SequenceId
+
 	INSERT INTO dbo.BSNGScanInfo (MatchId, EventDate, EventStatus, LiveHomeScore, LiveAwayScore, LastRejectedTicket, LastRejectedTime, HasScanned)
 	SELECT ms.MatchId
 			, ms.EventDate
 			, ms.EventStatus
 			, b.livehomescore
 			, b.liveawayscore
-			, MAX(transid) AS [TransId]
+			, MAX(b.SequenceId) AS [TransId]
 			, MAX(TransDate) AS [DeleteTime]	
 			, 0	
 	FROM		bodb02.dbo.bettrans b WITH(NOLOCK)
@@ -144,8 +146,8 @@ BEGIN
 				, b.livehomescore
 				, b.liveawayscore;
 	
-	
 	--- GET FRAUD TICKET
+	
 	INSERT INTO #tmpFraudTickets (CustId, Username, CurrencyId, CurrencyName, MatchId, EventDate, TransId, LiveHomeScore, LiveAwayScore)
 	SELECT  [CustId]			= bt.custid
 		,	[Username]			= bt.Username
@@ -241,7 +243,7 @@ BEGIN
 		--===6. UPDATE: TABLE "SuspiciousInfo" if (Match,Custid,FrauseCase) is Exitsing
 		UPDATE si WITH (ROWLOCK, UPDLOCK)
 		SET si.SuspiciousDate	= GETDATE()
-				,	si.TransIds	= si.TransIds + ','+ STUFF((SELECT ',', CONVERT(VARCHAR(15), t1.TransId) 
+				,	si.TransIds	= si.TransIds + ','+ STUFF((SELECT ',', CONVERT(VARCHAR(20), t1.TransId) 
 										 FROM #tmpFraudTickets t1 WITH (NOLOCK)
 										 WHERE t1.CustId = ft.CustId AND t1.MatchId = ft.MatchId AND si.FraudCaseId = @CurrentFraudCaseId
 										 FOR XML PATH('')), 1, 1, '')
@@ -265,7 +267,7 @@ BEGIN
 				,	[EventDate]			= ft.EventDate
 				,	[FraudCaseId]		= @CurrentFraudCaseId
 				,	[SuspiciousDate]	= GETDATE()
-				,	[TransIds]			= STUFF((SELECT ',', CONVERT(VARCHAR(15), t1.TransId) 
+				,	[TransIds]			= STUFF((SELECT ',', CONVERT(VARCHAR(20), t1.TransId) 
 										 FROM #tmpFraudTickets AS t1 WITH(NOLOCK)
 										 WHERE t1.CustId = ft.CustId AND t1.MatchId = ft.MatchId 
 										 FOR XML PATH('')), 1, 1, '')

@@ -23,6 +23,7 @@ AS
 		- 20190925@Long.Luu:	Change seconds to the goal [Redmine ID: 120881]
 		- 20191031@Long.Luu:	Exclude LOSE tickets from scanning [Redmine ID: 123027]
 		- 20220810@John.Ngo:	FS - Scale Out DBTrans [Redmine ID: #176471]
+		- 20230814@John.Ngo:	FS - Update datatype for MatchScore [Redmine ID: #192648]
 
 	Param's Explanation (filtered by):
 */
@@ -96,7 +97,7 @@ BEGIN
 		MatchId			INT NOT NULL PRIMARY KEY CLUSTERED
 		, EventDate		DATETIME
 		, EventStatus	NVARCHAR(50)
-		, CurrentScore	TINYINT
+		, CurrentScore	SMALLINT
 	);
 	-------GET BETTYPE--------------------------------
 	INSERT INTO #tmpBettype (Bettype)

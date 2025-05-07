@@ -25,6 +25,8 @@ AS
 		- 20190509@Casey.Huynh:	Fix Issue Performance when Update/Insert Scanned Match [Redmine ID: 110672]
 		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead & Remove Trace Log [Redmine ID: 115326]
 		- 20220810@John.Ngo:	FS - Scale Out DBTrans [Redmine ID: #176471]
+		- 20250507@John.Ngo:	[FS] Risk Control - Upgrade ExchangeID Data Type [RedmineID: #225337]
+		
 
 	Param's Explanation (filtered by):
 */
@@ -129,7 +131,7 @@ BEGIN
 		,	Handicap			SMALLMONEY
 		,	CustId				INT
 		,	Username			NVARCHAR(50)
-		,	CurrencyId			TINYINT
+		,	CurrencyId			SMALLINT
 		,	CurrencyName		NVARCHAR(50)
 		,	TransId				BIGINT	NOT NULL PRIMARY KEY CLUSTERED
 		,	Betteam				NVARCHAR(50)		
@@ -158,7 +160,7 @@ BEGIN
 		,	GraphDBGroupId		INT NOT NULL
 		,	GroupId				INT NOT NULL
 		,	Username			NVARCHAR(50)
-		,	CurrencyId			TINYINT
+		,	CurrencyId			SMALLINT
 		,	CurrencyName		NVARCHAR(50)
 		,	TransId				BIGINT	
 		,	Betteam				NVARCHAR(50) NOT NULL		
@@ -222,7 +224,7 @@ BEGIN
 		,	CustId				INT
 		,	IsIPFraud			BIT
 		,	Username			NVARCHAR(50)
-		,	CurrencyId			TINYINT
+		,	CurrencyId			SMALLINT
 		,	CurrencyName		NVARCHAR(50)		
 		,	Bettype				INT
 		,	EventDate			DATETIME
@@ -248,7 +250,7 @@ BEGIN
 	CREATE TABLE #tmpFraudTicketsCustInfo(
 			CustId				INT NOT NULL PRIMARY KEY CLUSTERED
 		,	Username			NVARCHAR(50)
-		,	CurrencyId			TINYINT
+		,	CurrencyId			SMALLINT
 	);
 
 	IF OBJECT_ID('tempdb..#tmpMatchBettypeBetteamSumStake') IS NOT NULL

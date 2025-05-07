@@ -9,7 +9,7 @@ ALTER PROCEDURE [dbo].[FS_Rpt_CTSMatchMonitor_Details_GetTickets]
 	,	@FraudCaseId				INT	
 	,	@SiteIds					NVARCHAR(MAX) = ''
 	,	@BettypeId					SMALLINT = 0
-	,	@CurrencyId					TINYINT = 0
+	,	@CurrencyId					SMALLINT = 0
 	,	@StakeFrom					MONEY = 0
 	,	@StakeTo					MONEY = 0
 AS
@@ -22,6 +22,7 @@ AS
 	Revisions:
 		- 20200520@Long.Luu: Created [Redmine ID: #133798]
 		- 20200620@Long.Luu: Add more filters to the report [Redmine ID: #135609]
+		- 20250507@John.Ngo:	[FS] Risk Control - Upgrade ExchangeID Data Type [RedmineID: #225337]
 */
 BEGIN
 	SET NOCOUNT ON;

@@ -24,6 +24,7 @@ AS
 		- 20191031@Long.Luu:	Exclude LOSE tickets from scanning [Redmine ID: 123027]
 		- 20220810@John.Ngo:	FS - Scale Out DBTrans [Redmine ID: #176471]
 		- 20230814@John.Ngo:	FS - Update datatype for MatchScore [Redmine ID: #192648]
+		- 20250507@John.Ngo:	[FS] Risk Control - Upgrade ExchangeID Data Type [RedmineID: #225337]
 
 	Param's Explanation (filtered by):
 */
@@ -62,7 +63,7 @@ BEGIN
 		,	MatchId				INT				NOT NULL
 		,	TransId				BIGINT			NOT NULL
 		,	Username			NVARCHAR(50)
-		,	CurrencyId			TINYINT
+		,	CurrencyId			SMALLINT
 		,	CurrencyName		NVARCHAR(50)		
 		,	EventDate			DATETIME		
 		,	LiveHomeScore		SMALLINT
@@ -82,7 +83,7 @@ BEGIN
 	CREATE TABLE #tmpFraudTicketsCustInfo(
 			CustId				INT NOT NULL PRIMARY KEY CLUSTERED
 		,	Username			NVARCHAR(50)
-		,	CurrencyId			TINYINT
+		,	CurrencyId			SMALLINT
 	);
 
 	-------------------------------------

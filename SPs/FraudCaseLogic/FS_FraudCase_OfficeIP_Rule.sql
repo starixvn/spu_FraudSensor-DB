@@ -18,6 +18,7 @@ AS
 		- 20190624@John.Ngo:	Remove Curreny Name on FS DB and use ID instead [Redmine ID: 115326]
 		- 20190914@Long.Luu:	Exclude IPv6 tickets from scanning [Redmine ID: 141593]
 		- 20220810@John.Ngo:	FS - Scale Out DBTrans [Redmine ID: #176471]
+		- 20250507@John.Ngo:	[FS] Risk Control - Upgrade ExchangeID Data Type [RedmineID: #225337]
 
 	Param's Explanation (filtered by):
 
@@ -64,7 +65,7 @@ BEGIN
 		, 	MatchId				INT NOT NULL
 		, 	TransId				BIGINT NOT NULL		
 		,	Username			NVARCHAR(50)
-		,	CurrencyId			TINYINT
+		,	CurrencyId			SMALLINT
 		,	CurrencyName		NVARCHAR(50)		
 		, 	EventDate			DATE NULL
 		, 	ARecommend			INT	NULL
@@ -91,7 +92,7 @@ BEGIN
 	CREATE TABLE #tmpFraudTicketsCustInfo(
 			CustId				INT NOT NULL PRIMARY KEY CLUSTERED
 		,	Username			NVARCHAR(50)
-		,	CurrencyId			TINYINT
+		,	CurrencyId			SMALLINT
 	);
 
 	--===2. INSERT DATA TO #tmpMatchInput===========

@@ -1,9 +1,3 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
 ALTER PROCEDURE [dbo].[FS_Rpt_CTSMatchMonitor_Details_GetTickets]
 		@MatchId					INT
 	,	@FraudCaseId				INT	
@@ -165,10 +159,4 @@ BEGIN
 END;
 
 GO
-GRANT EXECUTE ON [dbo].[FS_Rpt_CTSMatchMonitor_Details_GetTickets] TO [bodbSPUNet];
-GO
-GRANT VIEW DEFINITION ON [dbo].[FS_Rpt_CTSMatchMonitor_Details_GetTickets] TO [bodbSPUNet];
-GO
-
-GO
-/*<info serverAlias="DBFS-bodb_FraudSensor" executers="bodbSPUNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBFS-bodb_FraudSensor" executers="wsv_cts" isFunction="0" isNested="0"></info>*/

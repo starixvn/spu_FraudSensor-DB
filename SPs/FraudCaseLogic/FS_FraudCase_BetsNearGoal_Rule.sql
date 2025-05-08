@@ -174,4 +174,4 @@ BEGIN
 END;
 
 GO
-/*<info serverAlias="DBFS-bodb_FraudSensor" executers="bodbSPUNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBFS-bodb_FraudSensor" executers="wsv_cts" isFunction="0" isNested="0"></info>*/

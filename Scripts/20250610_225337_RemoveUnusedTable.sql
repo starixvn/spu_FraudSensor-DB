@@ -8,12 +8,12 @@ Reviewer: Sol
 USE bk;
 
 -- Rename 2 tables: bets_Translog, betsReject_Translog
-EXEC sp_rename 'bets_Translog', 'bets_Translog_Archive';
-EXEC sp_rename 'betsReject_Translog', 'betsReject_Translog_Archive';
+EXEC sp_rename 'bets_Translog', 'DEL_bets_Translog';
+EXEC sp_rename 'betsReject_Translog', 'DEL_betsReject_Translog';
 
 -- Monitor for 1 week & Drop table
-DROP TABLE dbo.bets_Translog_Archive;
-DROP TABLE dbo.betsReject_Translog_Archive;
+DROP TABLE dbo.DEL_bets_Translog;
+DROP TABLE dbo.DEL_betsReject_Translog;
 
 GO
 /*<info serverAlias="DBFS-bodb_FraudSensor"></info>*/

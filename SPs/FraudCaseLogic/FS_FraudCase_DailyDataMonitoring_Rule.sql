@@ -16,7 +16,8 @@ AS
 
 	Revisions:	
 		- 20190627@John.Ngo: Data Daily Monitor - Detect the changes within 7 days instead of 3 days [Redmine ID: 115780]
-
+		- 20250808@John.Ngo: Only keep data 'CapturedData' within 7 days [Redmine ID: #235691]
+		
 	Param's Explanation (filtered by):
 */
 BEGIN
@@ -297,8 +298,21 @@ BEGIN
 		WHERE r.FraudCaseId = @CurrentFraudCaseId;
 
 	END;
+	
+	-------- Delete Old Data --------
+	DECLARE @StopDate		   DATE = DATEADD(DAY,-7, GETDATE());
 
+	WHILE(1 = 1)
+	BEGIN
+		DELETE TOP(5000) gbc WITH(ROWLOCK)
+		FROM dbo.CapturedData AS gbc
+		WHERE gbc.CapturedDate < @StopDate;
+				
+		WAITFOR DELAY '00:00:0.100';
+	IF (@@ROWCOUNT = 0)
+		BREAK;
+	END;
 END;
 
 GO
-/*<info serverAlias="DBFS-bodb_FraudSensor" executers="bodbSPUNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBFS-bodb_FraudSensor" executers="wsv_cts" isFunction="0" isNested="0"></info>*/

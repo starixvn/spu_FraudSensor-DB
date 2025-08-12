@@ -1,7 +1,7 @@
 /*
 Creator: 20250808@John.Ngo
 Task: Clean data for Fraud Sensor [RedmineID: #235691]
-Server:  DB053
+Server:  DB052/DB053
 
 Reviewer: Sol
 */ 

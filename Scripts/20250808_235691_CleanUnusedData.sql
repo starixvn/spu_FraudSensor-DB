@@ -19,9 +19,10 @@ BEGIN
 	FROM dbo.CapturedData AS gbc
 	WHERE gbc.CapturedDate < @StopDate;
 			
-	WAITFOR DELAY '00:00:0.100';
 IF (@@ROWCOUNT = 0)
 	BREAK;
+
+WAITFOR DELAY '00:00:0.100';
 END;
 
 GO

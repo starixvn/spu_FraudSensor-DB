@@ -333,9 +333,10 @@ BEGIN
 		FROM dbo.OddsLog AS gbc
 		WHERE gbc.LogDate < @StopDate;
 				
-		WAITFOR DELAY '00:00:0.100';
 	IF (@@ROWCOUNT = 0)
 		BREAK;
+		
+	WAITFOR DELAY '00:00:0.100';
 	END;
 END;
 

@@ -26,7 +26,8 @@ AS
 		- 20230814@John.Ngo:	FS - Update datatype for MatchScore [Redmine ID: #192648]
 		- 20250507@John.Ngo:	[FS] Risk Control - Upgrade ExchangeID Data Type [RedmineID: #225337]
 		- 20250808@John.Ngo: 	Only keep data 'OddsLog' within 7 days [Redmine ID: #235691]
-
+		- 20250818@John.Ngo: 	Separate the archive table 'OddsLog' [Redmine ID: #235691]
+		
 	Param's Explanation (filtered by):
 */
 BEGIN
@@ -324,20 +325,6 @@ BEGIN
 	WHERE		ms.HasScanned = 0
 				AND m.EventStatus = 'Completed';
 				
-	-------- Delete Old Data --------
-	DECLARE @StopDate		   DATE = DATEADD(DAY,-7, GETDATE());
-
-	WHILE(1 = 1)
-	BEGIN
-		DELETE TOP(5000) gbc WITH(ROWLOCK)
-		FROM dbo.OddsLog AS gbc
-		WHERE gbc.LogDate < @StopDate;
-				
-	IF (@@ROWCOUNT = 0)
-		BREAK;
-		
-	WAITFOR DELAY '00:00:0.100';
-	END;
 END;
 
 GO

@@ -1,10 +1,3 @@
-USE [bodb_FraudSensor]
-GO
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-
 ALTER PROCEDURE [dbo].[FS_FraudCase_DailyDataMonitoring_Rule]
 		@IsManual		BIT = 0
 AS
@@ -17,7 +10,8 @@ AS
 	Revisions:	
 		- 20190627@John.Ngo: Data Daily Monitor - Detect the changes within 7 days instead of 3 days [Redmine ID: 115780]
 		- 20250808@John.Ngo: Only keep data 'CapturedData' within 7 days [Redmine ID: #235691]
-		
+		- 20250819@John.Ngo: Separate the archive table 'CapturedDate' [Redmine ID: #235691]
+
 	Param's Explanation (filtered by):
 */
 BEGIN
@@ -297,21 +291,6 @@ BEGIN
 		FROM dbo.FraudNotificationRecipient AS r WITH(NOLOCK)
 		WHERE r.FraudCaseId = @CurrentFraudCaseId;
 
-	END;
-	
-	-------- Delete Old Data --------
-	DECLARE @StopDate		   DATE = DATEADD(DAY,-7, GETDATE());
-
-	WHILE(1 = 1)
-	BEGIN
-		DELETE TOP(5000) gbc WITH(ROWLOCK)
-		FROM dbo.CapturedData AS gbc
-		WHERE gbc.CapturedDate < @StopDate;
-				
-	IF (@@ROWCOUNT = 0)
-		BREAK;
-		
-	WAITFOR DELAY '00:00:0.100';
 	END;
 END;
 
